@@ -73,7 +73,7 @@ class GlobalConfig:
     
     bad_dir: Path = root_dir / "Datasets/bad_data"
     src_dir: Path = root_dir / "Datasets/source_data/amass"
-    target_dir: Path = root_dir / "Datasets/target_data/G1/amass"
+    target_dir: Path = root_dir / "Datasets/target_data/g1/amass"
     log_dir: Path = root_dir / "logs"
 
     human_height: float = 1.60
@@ -376,7 +376,7 @@ class PipelineController:
 
         g1_qpos_list = []
         for i in range(T):
-            _, qpos = self.retargeter.retarget(keypoints_subset[i], order="xyzxyzw")
+            _, qpos = self.retargeter.retarget(keypoints_subset[i])
             g1_qpos_list.append(qpos)
             
         g1_qpos = np.stack(g1_qpos_list)
@@ -439,8 +439,8 @@ def main():
     if len(sys.argv) == 1:
 
         # DEBUG_MODE = "viz" 
-        DEBUG_MODE = "distribution" 
-        # DEBUG_MODE = "process"
+        # DEBUG_MODE = "distribution"
+        DEBUG_MODE = "process"
         DEBUG_FILE = ""
 
         logger.warning(f"No CLI args found. Switching to VS Code Debug Mode: [{DEBUG_MODE}]")

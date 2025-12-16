@@ -177,7 +177,7 @@ class GeneralMotionRetargeting:
                 task = self.human_body_to_task2[i]
                 task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot[i]), pos[i]))
             
-    def retarget(self, human_data, order, offset_to_ground=False):
+    def retarget(self, human_data, offset_to_ground=False):
 
         pos, rot = human_data[:, :3], human_data[:, 3:] #rot: [w, x, y, z]
 
@@ -227,7 +227,6 @@ class GeneralMotionRetargeting:
         
         xyz = self.configuration.data.xpos[1:].copy()
         rot = self.configuration.data.xquat[1:].copy()
-        if order == "xyzxyzw": rot = rot[:, [1, 2, 3, 0]]
         return np.concatenate([xyz, rot], axis=-1), self.configuration.data.qpos.copy()
 
 
@@ -255,7 +254,7 @@ class GeneralMotionRetargeting:
     def offset_human_pos_rot(self, pos, rot, pos_offsets, rot_offsets):
         """the pos offsets are applied in the local frame"""
         
-        rot = rot[:, [1, 2, 3, 0]] #wxyz -> xyzw]
+        rot = rot[:, [1, 2, 3, 0]] #wxyz -> xyzw
         
         updated_quat = (R.from_quat(rot) * rot_offsets).as_quat() #xyzw
 
