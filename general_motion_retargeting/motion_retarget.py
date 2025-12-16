@@ -131,11 +131,6 @@ class GeneralMotionRetargeting:
                 pos_offsets1.append(np.array(pos_offset) - self.ground)
                 self.tasks1.append(task)
                 self.task_errors1[task] = []
-                # self.human_body_to_task1[body_name] = task
-                # self.pos_offsets1[body_name] = np.array(pos_offset) - self.ground
-                # self.rot_offsets1[body_name] = R.from_quat(rot_offset)
-                # self.tasks1.append(task)
-                # self.task_errors1[task] = []
         self.rot_offsets1 = R.from_quat(rot_offsets1)
         self.pos_offsets1 = np.array(pos_offsets1)
         
@@ -152,11 +147,6 @@ class GeneralMotionRetargeting:
                     orientation_cost=rot_weight,
                     lm_damping=1,
                 )
-                # self.human_body_to_task2[body_name] = task
-                # self.pos_offsets2[body_name] = np.array(pos_offset) - self.ground
-                # self.rot_offsets2[body_name] = R.from_quat(rot_offset)
-                # self.tasks2.append(task)
-                # self.task_errors2[task] = []
                 self.human_body_to_task2.append(task)
                 rot_offsets2.append(rot_offset)
                 pos_offsets2.append(np.array(pos_offset) - self.ground)
@@ -166,21 +156,15 @@ class GeneralMotionRetargeting:
         self.pos_offsets2 = np.array(pos_offsets2)
   
     def update_targets(self, pos, rot, offset_to_ground=False):
-        # scale human data in local frame
-        # human_data = self.scale_human_data(human_data, self.human_root_name, self.human_scale_table)
-        # human_data = self.offset_human_data(human_data, self.pos_offsets1, self.rot_offsets1)
-        # human_data = self.apply_ground_offset(human_data)
 
         ######## rot:[w, x, y, z]
 
         pos = self.scale_human_pos(pos, self.human_scale_table)
-        pos, offset_rot = self.offset_human_pos_rot(pos, rot, self.pos_offsets1, self.rot_offsets1) 
-        #offset_rot: [x, y, z, w]
-        rot = offset_rot[:, [3, 0, 1, 2]] 
-        #rot: [w, x, y, z]
+        pos, offset_rot = self.offset_human_pos_rot(pos, rot, self.pos_offsets1, self.rot_offsets1) #offset_rot: [x, y, z, w]
+        
+        rot = offset_rot[:, [3, 0, 1, 2]] #rot: [w, x, y, z]
 
         if offset_to_ground:
-            # human_data = self.offset_human_data_to_ground(human_data)
             pos = self.offset_pos_to_ground(pos)
 
         if self.use_ik_match_table1:
@@ -193,25 +177,9 @@ class GeneralMotionRetargeting:
                 task = self.human_body_to_task2[i]
                 task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot[i]), pos[i]))
             
-        # self.scaled_human_data = human_data
-
-        # if self.use_ik_match_table1:
-        #     for body_name in self.human_body_to_task1.keys():
-        #         task = self.human_body_to_task1[body_name]
-        #         pos, rot = human_data[body_name]
-        #         task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot), pos))
-        
-        # if self.use_ik_match_table2:
-        #     for body_name in self.human_body_to_task2.keys():
-        #         task = self.human_body_to_task2[body_name]
-        #         pos, rot = human_data[body_name]
-        #         task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot), pos))
-            
-            
     def retarget(self, human_data, order, offset_to_ground=False):
 
         pos, rot = human_data[:, :3], human_data[:, 3:] #rot: [w, x, y, z]
-        # if order == "xyzxyzw": rot = rot[:, [3, 0, 1, 2]]  #rot: [w, x, y, z]
 
         # Update the task targets
         self.update_targets(pos, rot, offset_to_ground)
@@ -287,10 +255,10 @@ class GeneralMotionRetargeting:
     def offset_human_pos_rot(self, pos, rot, pos_offsets, rot_offsets):
         """the pos offsets are applied in the local frame"""
         
-        rot = rot[:, [1, 2, 3, 0]]
-        #rot: [w, x, y, z]
-        updated_quat = (R.from_quat(rot) * rot_offsets).as_quat()
-        ###updated_quat: [x, y, z, w]
+        rot = rot[:, [1, 2, 3, 0]] #wxyz -> xyzw]
+        
+        updated_quat = (R.from_quat(rot) * rot_offsets).as_quat() #xyzw
+
         global_pos_offset = R.from_quat(updated_quat).apply(pos_offsets)
         global_pos = pos + global_pos_offset
 

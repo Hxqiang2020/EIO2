@@ -18,6 +18,8 @@ from typing import List, Dict, Tuple, Optional, Any
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import motion.smpl_sim.poselib.core.rotation3d as pRot
 
+import time
+
 MODEL_CONVENTIONS = {
     "mujoco_quat_order": "wxyz",
     "scipy_quat_order": "xyzw",
@@ -61,14 +63,16 @@ logger = logging.getLogger("G1Pipeline")
 
 @dataclass
 class GlobalConfig:
-    root_dir: Path = Path(EGMR_ROOT_DIR)
+    # root_dir: Path = Path(EGMR_ROOT_DIR)
+    
+    REMOTE_PATH = ""
+    root_dir: Path = Path("./") if len(REMOTE_PATH) == 0 else Path(REMOTE_PATH)
+
     retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_g1.json"
     robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
-    # src_dir: Path = root_dir / "Datasets/source_data/UE/G1/Amass"
-    bad_dir: Path = root_dir / "Datasets/source_data/UE/bad_data"
-    # target_dir: Path = root_dir / "Datasets/target_data/G1/G1/Amass"
-    src_dir: Path = root_dir / "Datasets/source_data/UE/test3"
-    target_dir: Path = root_dir / "Datasets/target_data/G1/test3"
+    bad_dir: Path = root_dir / "Datasets/bad_data"
+    src_dir: Path = root_dir / "Datasets/source_data/amass"
+    target_dir: Path = root_dir / "Datasets/target_data/G1/amass"
     log_dir: Path = root_dir / "logs"
 
     human_height: float = 1.60
@@ -94,31 +98,31 @@ class MathEngine:
         return q / (norms + 1e-12)
     
     @staticmethod
-    def _compute_angular_velocity(r, time_delta: float, guassian_filter=True):
-        # assume the second last dimension is the time axis
-        r = torch.from_numpy(r)
+    def _compute_angular_velocity(rot, time_delta: float, guassian_filter=True):
+        assert len(rot.shape) == 3
+        r = torch.from_numpy(rot[:, :, [1, 2, 3, 0]]).float() # wxyz --> xyzw
         diff_quat_data = pRot.quat_identity_like(r).to(r)
         diff_quat_data[:-1, :, :] = pRot.quat_mul_norm(r[1:, :, :], pRot.quat_inverse(r[:-1, :, :]))
         diff_angle, diff_axis = pRot.quat_angle_axis(diff_quat_data)
         angular_velocity = diff_axis * diff_angle.unsqueeze(-1) / time_delta
         if guassian_filter:
-            angular_velocity = torch.from_numpy(filters.gaussian_filter1d(angular_velocity.numpy(), 2, axis=-2, mode="nearest"),)
+            angular_velocity = torch.from_numpy(filters.gaussian_filter1d(angular_velocity.numpy(), 2, axis=-3, mode="nearest"),)
         return angular_velocity.numpy()
     
     @staticmethod
     def _compute_velocity(p, time_delta, guassian_filter=True):
-        velocity = np.gradient(p, axis=-2) / time_delta
+        assert len(p.shape) == 3
+        velocity = np.gradient(p, axis=-3) / time_delta
         if guassian_filter:
-            velocity = torch.from_numpy(filters.gaussian_filter1d(velocity, 2, axis=-2, mode="nearest")).to(p)
-        else:
-            velocity = torch.from_numpy(velocity).to(p)
+            velocity = filters.gaussian_filter1d(velocity, 2, axis=-3, mode="nearest")
         
-        return velocity.numpy()
+        return velocity
     
     @staticmethod
     def _compute_dof_vel(joint_pos: np.ndarray, time_delta: float) -> np.ndarray:
-        dof_vel = ((joint_pos[1:, ] - joint_pos[:-1, ]) / time_delta)
-        dof_vel = np.concatenate([dof_vel, dof_vel[-1]], axis=0)
+        assert len(joint_pos.shape) == 2
+        dof_vel = (joint_pos[1:, :] - joint_pos[:-1, :]) / time_delta
+        dof_vel = np.concatenate([dof_vel, dof_vel[-1:]], axis=0)
         return dof_vel
 
 class SkeletonStructure:
@@ -138,7 +142,6 @@ class SkeletonStructure:
                 indices.append(-1)
             else:
                 indices.append(self.links.index(p))
-                # indices.append(links.index(p))
         return indices #[-1, 0, 1, 2, 3, 0, 5, 6, 7, 0, 9, 10, 11, 12, 13, 14, 11, 16, 17, 18, 11, 20, 21]
 
 
@@ -158,7 +161,6 @@ class MotionVisualizer:
         self.is_paused = False
         self.is_closed = False
 
-        # 左右两个 3D 子图
         self.fig = plt.figure(figsize=(16, 8))
         self.ax_full = self.fig.add_subplot(121, projection="3d")
         self.ax_kp = self.fig.add_subplot(122, projection="3d")
@@ -173,7 +175,7 @@ class MotionVisualizer:
         elif event.key.lower() == "r":
             self.current_frame = 0
             logger.info("Reset to frame 0")
-        elif event.key.lower() == "m":
+        elif event.key.lower() == "b":
             import shutil
             file = self.file_path
             bad_dir = self.bad_dir
@@ -197,14 +199,13 @@ class MotionVisualizer:
         ax.set_zlim([0.0, 1.8])
 
     def _draw_pose_and_rot(self, ax, pose_xyz, quat_xyzw, parent_indices, point_color="red"):
-        # skeleton bones
+
         bone_segments = []
         for i, p in enumerate(parent_indices):
             if p != -1:
                 bone_segments.append([pose_xyz[i], pose_xyz[p]])
         ax.add_collection3d(Line3DCollection(bone_segments, colors="black", linewidths=1.5, alpha=0.6))
 
-        # rotations as axis triads
         rot_mats = R.from_quat(quat_xyzw).as_matrix()  # (N,3,3)
         scale = 0.08
         x_ends = pose_xyz + scale * rot_mats[:, :, 0]
@@ -219,7 +220,6 @@ class MotionVisualizer:
         ax.add_collection3d(Line3DCollection(y_segs, colors="green", linewidths=1.2))
         ax.add_collection3d(Line3DCollection(z_segs, colors="blue", linewidths=1.2))
 
-        # points
         ax.scatter(pose_xyz[:, 0], pose_xyz[:, 1], pose_xyz[:, 2], c=point_color, s=15)
 
     def _draw_frame(self, frame_idx: int):
@@ -230,11 +230,7 @@ class MotionVisualizer:
         current_wxyz = self.wxyz[frame_idx]     # (J, 4)
 
         center = np.mean(current_xyz, axis=0)
-        self._set_axes_common(
-            ax,
-            f"{self.title} | Full | Frame {frame_idx}/{self.num_frames} (Space:Pause)",
-            center,
-        )
+        self._set_axes_common(ax, f"{self.title} | Full | Frame {frame_idx}/{self.num_frames} (Space:Pause)", center)
 
         self._draw_pose_and_rot(
             ax=ax,
@@ -254,11 +250,7 @@ class MotionVisualizer:
         kp_wxyz = full_wxyz[self.selected_indices]      # (K, 4)
 
         center = np.mean(kp_xyz, axis=0)
-        self._set_axes_common(
-            ax,
-            f"{self.title} | Keypoints | Frame {frame_idx}/{self.num_frames}",
-            center,
-        )
+        self._set_axes_common(ax, f"{self.title} | Keypoints | Frame {frame_idx}/{self.num_frames}", center,)
 
         self._draw_pose_and_rot(
             ax=ax,
@@ -345,10 +337,27 @@ class PipelineController:
         logger.info(f"PROCESSING COMPLETE. Success: {stats['success']}, Failed: {stats['failed']}")
         if stats["failed"] > 0:
             logger.warning(f"Check log file for details: {self.log_path}")
+        
+    def process_dataset_distribution(self):
+        self._init_retargeting()
+        self.cfg.target_dir.mkdir(parents=True, exist_ok=True)
+        
+        all_src_files = list(self.cfg.src_dir.rglob("*.json"))
+        len_files = len(all_src_files)
 
-    def _process_single_file(self, file_path: Path):
+        for i in range(len_files):
+            print(f"{i}/{len_files}")
+            try:
+                time.sleep(0.1)
+                self._process_single_file(all_src_files[i], del_current_file=True)
+            except:
+                continue
+
+    def _process_single_file(self, file_path: Path, del_current_file=False):
         with open(file_path, 'r') as f:
             motion_data = json.load(f)
+        if del_current_file:
+            os.remove(f)
             
         fps = motion_data.get("mocap framrate", self.cfg.fps_default)
         dt = 1.0 / fps
@@ -357,10 +366,11 @@ class PipelineController:
         human_motion = np.array(motion_data["poses"]).reshape(T, -1, 7)
         keypoints_subset = human_motion[:, self.selected_indices, :]
 
-        body_pos = human_motion[:, :, :3]
-        lowest = np.min(body_pos[:, :, 2])
-        body_pos[:, :, 2] -= (lowest - 0.05)
-        body_rot = human_motion[:, :, 3:]
+        body_pos = human_motion[:, :, :3].copy()
+        body_pos[:, :, :2] = body_pos[:, :, :2] - body_pos[:1, :1, :2]
+        body_pos[:, :, 2] = body_pos[:, :, 2] - np.min(body_pos[:, :, 2]) + 0.05
+
+        body_rot = human_motion[:, :, 3:].copy()
         body_rot = MathEngine.quat_normalize(body_rot)
 
         g1_qpos_list = []
@@ -371,14 +381,14 @@ class PipelineController:
         g1_qpos = np.stack(g1_qpos_list)
         start_idx = MODEL_CONVENTIONS["joints_start_idx"]
         joint_pos = g1_qpos[:, start_idx:]
-        joint_vel = MathEngine.compute_dof_vel(joint_pos, dt)
+        joint_vel = MathEngine._compute_dof_vel(joint_pos, dt)
         
-        body_lin_vel = MathEngine.compute_linear_velocity(body_pos, dt)
-        body_ang_vel = MathEngine.compute_angular_velocity(body_rot, dt)
+        body_lin_vel = MathEngine._compute_velocity(body_pos, dt)
+        body_ang_vel = MathEngine._compute_angular_velocity(body_rot, dt)
         
-        root_trans = body_pos[:, 0].copy()
-        root_trans[:, :2] -= root_trans[0, :2]
-        root_rot = body_rot[:, 0]
+        # root_trans = body_pos[:, 0].copy()
+        # root_trans[:, :2] -= root_trans[0, :2]
+        # root_rot = body_rot[:, 0]
 
         relabel_root_rot = g1_qpos[:, 3:7]
         relabel_root_trans = g1_qpos[:, :3]
@@ -396,7 +406,7 @@ class PipelineController:
             "relabel_root_rot": relabel_root_rot.astype(np.float32),
             "relabel_root_trans": relabel_root_trans.astype(np.float32),
             "robot": "unitree.g1_29dof",
-            "fps": fps
+            "fps": fps,
         }
         
         save_path = self.cfg.target_dir / f"{file_path.stem}.pkl"
@@ -435,12 +445,8 @@ def main():
     if len(sys.argv) == 1:
 
         DEBUG_MODE = "viz" 
-        # DEBUG_FILE = ""
-        DEBUG_FILE = "LSM_Feelings_Cry_02_chr01_Retargeted_Hips_skeleton_1_time_1765521739_355_01.json"
-        # DEBUG_FILE = "LSM_Feelings_Cry_02_chr01_Retargeted_Hips_skeleton_1_time_1765521739_355_437_old.json"
-        
         # DEBUG_MODE = "process"
-        # DEBUG_FILE = ""
+        DEBUG_FILE = ""
 
         logger.warning(f"No CLI args found. Switching to VS Code Debug Mode: [{DEBUG_MODE}]")
         
@@ -453,10 +459,10 @@ def main():
     controller = PipelineController(config)
     
     if args.command == "process": controller.process_dataset()
-    elif args.command == "viz": controller.visualize_file(args.file)
-        # for file in os.listdir(config.src_dir):
-        #     file_name = os.path.basename(file)
-        #     controller.visualize_file(file_name)
+    elif args.command == "viz":
+        for file in os.listdir(config.src_dir):
+            file_name = os.path.basename(file)
+            controller.visualize_file(file_name)
 
     else: parser.print_help()
 
