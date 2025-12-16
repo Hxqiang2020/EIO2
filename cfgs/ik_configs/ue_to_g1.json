@@ -1,0 +1,68 @@
+{
+    "robot_root_name": "pelvis",
+    "human_root_name": "Hips",
+    "ground_height": 0.0,
+    "human_height_assumption": 1.6,
+    "use_ik_match_table1": false,
+    "use_ik_match_table2": true,
+    
+    "human_scale_table": {
+        "pelvis": 1.0,
+
+        "left_hip_link": 1.0,
+        "left_knee_link": 1.0,
+        "left_foot_link": 1.0,
+
+        "right_hip_link": 1.0,
+        "right_knee_link": 1.0,
+        "right_foot_link": 1.0,
+
+        "left_shoulder_link": 1.0,
+        "left_elbow_link": 1.0,
+        "left_wrist_link": 1.0,
+        
+        "right_shoulder_link": 1.0,
+        "right_elbow_link": 1.0,
+        "right_wrist_link": 1.0
+    },
+
+    "ik_match_table1": {
+        "pelvis": ["pelvis", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+
+        "left_hip_roll_link": ["left_hip_link", 0, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "left_knee_link": ["left_knee_link", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "left_ankle_roll_link": ["left_foot_link", 100, 50, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+
+        "right_hip_roll_link": ["right_hip_link", 0, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "right_knee_link": ["right_knee_link", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "right_ankle_roll_link": ["right_foot_link", 100, 50, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        
+        "left_shoulder_roll_link": ["left_shoulder_link", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "left_elbow_link": ["left_elbow_link", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "left_wrist_yaw_link": ["left_wrist_link", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+
+        "right_shoulder_roll_link": ["right_shoulder_link", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "right_elbow_link": ["right_elbow_link", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "right_wrist_yaw_link": ["right_wrist_link", 0, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+    },
+
+    "ik_match_table2": {
+        "pelvis": ["pelvis", 10, 2, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+
+        "left_hip_roll_link": ["left_hip_link", 5, 2, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "left_knee_link": ["left_knee_link", 2, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "left_ankle_roll_link": ["left_foot_link", 20, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+
+        "right_hip_roll_link": ["right_hip_link", 5, 2, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "right_knee_link": ["right_knee_link", 2, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "right_ankle_roll_link": ["right_foot_link", 20, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+
+        "left_shoulder_roll_link": ["left_shoulder_link", 10, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "left_elbow_link": ["left_elbow_link", 10, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "left_wrist_yaw_link": ["left_wrist_link", 5, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        
+        "right_shoulder_roll_link": ["right_shoulder_link", 10, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "right_elbow_link": ["right_elbow_link", 10, 5, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        "right_wrist_yaw_link": ["right_wrist_link", 5, 10, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+    }
+}

@@ -1,0 +1,27 @@
+tmp
+
+#
+Datasets
+Datasets-ue
+# unitree g1
+Datasets-unitree-g1-json
+Datasets-unitree-g1-pkl
+# westlake o1
+Datasets-westlake-o1-json
+Datasets-westlake-o1-pkl
+
+# Python
+.DS_Store
+**/*.egg-info/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+**/*.pb
+**/test.py
+**/old.py
+**/*.pkl
+**/.vscode
+
+#Outputs
+**/outputs/*
+**/logs/*
