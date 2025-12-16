@@ -65,8 +65,8 @@ logger = logging.getLogger("G1Pipeline")
 class GlobalConfig:
     # root_dir: Path = Path(EGMR_ROOT_DIR)
     
-    REMOTE_PATH = ""
-    root_dir: Path = Path("./") if len(REMOTE_PATH) == 0 else Path(REMOTE_PATH)
+    REMOTE_PATH = "/home/hx/code/EIO2"
+    root_dir: Path = Path(REMOTE_PATH)
 
     retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_g1.json"
     robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
@@ -439,8 +439,8 @@ def main():
     if len(sys.argv) == 1:
 
         # DEBUG_MODE = "viz" 
-        # DEBUG_MODE = "distribution"
-        DEBUG_MODE = "process"
+        DEBUG_MODE = "distribution"
+        # DEBUG_MODE = "process"
         DEBUG_FILE = ""
 
         logger.warning(f"No CLI args found. Switching to VS Code Debug Mode: [{DEBUG_MODE}]")
