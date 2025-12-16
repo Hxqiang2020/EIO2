@@ -434,6 +434,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Commands: process | viz")
     subparsers.add_parser("process", help="Batch process dataset")
     parser_viz = subparsers.add_parser("viz", help="Visualize motion")
+    parser_viz = subparsers.add_parser("distribution", help="distribution process dataset")
     parser_viz.add_argument("file", type=str, help="Filename")
     
     if len(sys.argv) == 1:
