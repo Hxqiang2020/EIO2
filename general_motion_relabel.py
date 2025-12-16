@@ -439,13 +439,15 @@ def main():
     if len(sys.argv) == 1:
 
         # DEBUG_MODE = "viz" 
-        DEBUG_MODE = "process"
+        DEBUG_MODE = "distribution" 
+        # DEBUG_MODE = "process"
         DEBUG_FILE = ""
 
         logger.warning(f"No CLI args found. Switching to VS Code Debug Mode: [{DEBUG_MODE}]")
         
         if DEBUG_MODE == "viz": sys.argv.extend(["viz", DEBUG_FILE])
         elif DEBUG_MODE == "process": sys.argv.extend(["process"])
+        elif DEBUG_MODE == "distribution": sys.argv.extend(["distribution"])
 
     args = parser.parse_args()
     
@@ -453,6 +455,7 @@ def main():
     controller = PipelineController(config)
     
     if args.command == "process": controller.process_dataset()
+    elif args.command == "distribution": controller.process_dataset_distribution()
     elif args.command == "viz":
         for file in os.listdir(config.src_dir):
             file_name = os.path.basename(file)
