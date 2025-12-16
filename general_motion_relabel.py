@@ -358,7 +358,7 @@ class PipelineController:
         with open(file_path, 'r') as f:
             motion_data = json.load(f)
         if del_current_file:
-            os.remove(f)
+            os.remove(file_path)
             
         fps = motion_data.get("mocap framrate", self.cfg.fps_default)
         dt = 1.0 / fps
@@ -386,10 +386,6 @@ class PipelineController:
         
         body_lin_vel = MathEngine._compute_velocity(body_pos, dt)
         body_ang_vel = MathEngine._compute_angular_velocity(body_rot, dt)
-        
-        # root_trans = body_pos[:, 0].copy()
-        # root_trans[:, :2] -= root_trans[0, :2]
-        # root_rot = body_rot[:, 0]
 
         relabel_root_rot = g1_qpos[:, 3:7]
         relabel_root_trans = g1_qpos[:, :3]
@@ -402,12 +398,9 @@ class PipelineController:
             "body_ang_vel": body_ang_vel.astype(np.float32),
             "joint_pos": joint_pos.astype(np.float32),
             "joint_vel": joint_vel.astype(np.float32),
-            # "root_trans": root_trans.astype(np.float32),
-            # "root_rot": root_rot.astype(np.float32),
             "relabel_root_rot": relabel_root_rot.astype(np.float32),
             "relabel_root_trans": relabel_root_trans.astype(np.float32),
             "robot": "unitree.g1_29dof",
-            "fps": fps,
         }
         
         save_path = self.cfg.target_dir / f"{file_path.stem}.pkl"
