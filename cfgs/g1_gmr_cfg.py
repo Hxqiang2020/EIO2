@@ -64,6 +64,7 @@ UE_link_parents = {
     'head_link': "neck1_link",
 }
 
+"""
 UE_parents_indices = [
     -1,
     0, 1, 2, 3,
@@ -72,9 +73,9 @@ UE_parents_indices = [
     11, 12, 13, 14,
     11, 16, 17, 18,
     11, 20, 21
-]
+]"""
 
-g1_links = [
+"""g1_links = [
     'pelvis', # 0
     'left_hip_pitch_link', 'left_hip_roll_link', 'left_hip_yaw_link', 'left_knee_link', 'left_ankle_pitch_link', 'left_ankle_roll_link', # 1, 2, 3, 4, 5, 6
     'right_hip_pitch_link', 'right_hip_roll_link', 'right_hip_yaw_link', 'right_knee_link', 'right_ankle_pitch_link', 'right_ankle_roll_link', # 7, 8, 9, 10, 11, 12
@@ -92,7 +93,7 @@ g1_matched_links = [
     'left_shoulder_roll_link', 'left_elbow_link', 'left_wrist_yaw_link',
     'right_shoulder_roll_link', 'left_elbow_link', 'right_wrist_yaw_link'
 ]
-
+"""
 """
 links = [
     'Hips', # 0

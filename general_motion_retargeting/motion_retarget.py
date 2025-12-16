@@ -105,6 +105,8 @@ class GeneralMotionRetargeting:
             
         self.setup_retarget_configuration()
         
+        self.qpos_init = self.configuration.data.qpos.copy()
+        
         self.ground_offset = 0.0
 
     def setup_retarget_configuration(self):
@@ -160,9 +162,9 @@ class GeneralMotionRetargeting:
         ######## rot:[w, x, y, z]
 
         pos = self.scale_human_pos(pos, self.human_scale_table)
-        pos, offset_rot = self.offset_human_pos_rot(pos, rot, self.pos_offsets1, self.rot_offsets1) #offset_rot: [x, y, z, w]
-        
-        rot = offset_rot[:, [3, 0, 1, 2]] #rot: [w, x, y, z]
+
+        # pos, offset_rot = self.offset_human_pos_rot(pos, rot, self.pos_offsets1, self.rot_offsets1) #offset_rot: [x, y, z, w]
+        # rot = offset_rot[:, [3, 0, 1, 2]] #rot: [w, x, y, z]
 
         if offset_to_ground:
             pos = self.offset_pos_to_ground(pos)
@@ -178,8 +180,13 @@ class GeneralMotionRetargeting:
                 task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot[i]), pos[i]))
             
     def retarget(self, human_data, offset_to_ground=False):
+        
+        self.configuration.data.qpos[:] = self.qpos_init
+        self.configuration.data.qvel[:] = 0.
+        mj.mj_forward(self.configuration.model, self.configuration.data)
 
         pos, rot = human_data[:, :3], human_data[:, 3:] #rot: [w, x, y, z]
+        rot = rot / (np.linalg.norm(rot, axis=-1, keepdims=True) + 1e-12)
 
         # Update the task targets
         self.update_targets(pos, rot, offset_to_ground)
@@ -270,74 +277,3 @@ class GeneralMotionRetargeting:
         offset_pos[:, 2] = offset_pos[:, 2] - lowest_pos + ground_offset
 
         return offset_pos
-
-    def scale_human_data(self, human_data, human_root_name, human_scale_table):
-        human_data_local = {}
-        root_pos, root_quat = human_data[human_root_name]
-
-        # scale root
-        scaled_root_pos = human_scale_table[human_root_name] * root_pos
-
-        # scale other body parts in local frame
-        for body_name in human_data.keys():
-            if body_name not in human_scale_table:
-                continue
-            if body_name == human_root_name:
-                continue
-            else:
-                # transform to local frame (only position)
-                human_data_local[body_name] = (human_data[body_name][0] - root_pos) * human_scale_table[body_name]
-
-        # transform the human data back to the global frame
-        human_data_global = {human_root_name: (scaled_root_pos, root_quat)}
-        for body_name in human_data_local.keys():
-            human_data_global[body_name] = (human_data_local[body_name] + scaled_root_pos, human_data[body_name][1])
-
-        return human_data_global
-
-    def offset_human_data(self, human_data, pos_offsets, rot_offsets):
-        """the pos offsets are applied in the local frame"""
-        offset_human_data = {}
-        for body_name in human_data.keys():
-            pos, quat = human_data[body_name]
-            offset_human_data[body_name] = [pos, quat]
-            # apply rotation offset first
-            updated_quat = (R.from_quat(quat, scalar_first=True) * rot_offsets[body_name]).as_quat(scalar_first=True)
-            offset_human_data[body_name][1] = updated_quat
-            
-            local_offset = pos_offsets[body_name]
-            # compute the global position offset using the updated rotation
-            global_pos_offset = R.from_quat(updated_quat, scalar_first=True).apply(local_offset)
-            
-            offset_human_data[body_name][0] = pos + global_pos_offset
-           
-        return offset_human_data
-
-    def offset_human_data_to_ground(self, human_data):
-        """find the lowest point of the human data and offset the human data to the ground"""
-        offset_human_data = {}
-        ground_offset = 0.1
-        lowest_pos = np.inf
-
-        for body_name in human_data.keys():
-            # only consider the foot/Foot
-            if "Foot" not in body_name and "foot" not in body_name:
-                continue
-            pos, quat = human_data[body_name]
-            if pos[2] < lowest_pos:
-                lowest_pos = pos[2]
-                lowest_body_name = body_name
-        for body_name in human_data.keys():
-            pos, quat = human_data[body_name]
-            offset_human_data[body_name] = [pos, quat]
-            offset_human_data[body_name][0] = pos - np.array([0, 0, lowest_pos]) + np.array([0, 0, ground_offset])
-        return offset_human_data
-
-    def set_ground_offset(self, ground_offset):
-        self.ground_offset = ground_offset
-
-    def apply_ground_offset(self, human_data):
-        for body_name in human_data.keys():
-            pos, quat = human_data[body_name]
-            human_data[body_name][0] = pos - np.array([0, 0, self.ground_offset])
-        return human_data

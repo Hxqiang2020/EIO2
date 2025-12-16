@@ -64,7 +64,6 @@ logger = logging.getLogger("G1Pipeline")
 @dataclass
 class GlobalConfig:
     # root_dir: Path = Path(EGMR_ROOT_DIR)
-    
     REMOTE_PATH = "/home/hx/code/EIO2"
     root_dir: Path = Path(REMOTE_PATH)
 
@@ -72,8 +71,8 @@ class GlobalConfig:
     robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
     
     bad_dir: Path = root_dir / "Datasets/bad_data"
-    src_dir: Path = root_dir / "Datasets/source_data/amass"
-    target_dir: Path = root_dir / "Datasets/target_data/g1/amass"
+    src_dir: Path = root_dir / "Datasets/source_data/test"
+    target_dir: Path = root_dir / "Datasets/target_data/g1/test"
     log_dir: Path = root_dir / "logs"
 
     human_height: float = 1.60
@@ -208,7 +207,7 @@ class MotionVisualizer:
         ax.add_collection3d(Line3DCollection(bone_segments, colors="black", linewidths=1.5, alpha=0.6))
 
         rot_mats = R.from_quat(quat_xyzw).as_matrix()  # (N,3,3)
-        scale = 0.08
+        scale = 0.01
         x_ends = pose_xyz + scale * rot_mats[:, :, 0]
         y_ends = pose_xyz + scale * rot_mats[:, :, 1]
         z_ends = pose_xyz + scale * rot_mats[:, :, 2]
@@ -222,6 +221,8 @@ class MotionVisualizer:
         ax.add_collection3d(Line3DCollection(z_segs, colors="blue", linewidths=1.2))
 
         ax.scatter(pose_xyz[:, 0], pose_xyz[:, 1], pose_xyz[:, 2], c=point_color, s=15)
+        for i, (x, y, z) in enumerate(pose_xyz):
+            ax.text(x, y, z, str(i), fontsize=12, ha='center', va='bottom', color='black')
 
     def _draw_frame(self, frame_idx: int):
         ax = self.ax_full
@@ -303,7 +304,8 @@ class PipelineController:
                 actual_human_height=self.cfg.human_height
             )
             with open(self.cfg.retarget_json) as f: data = json.load(f)
-            selected_links = list(data["human_scale_table"].keys())
+            # selected_links = list(data["human_scale_table"].keys())
+            selected_links = UE_keypoints_links
             self.selected_indices = [UE_links.index(l) for l in selected_links]
 
     def process_dataset(self):
@@ -440,13 +442,13 @@ def main():
     if len(sys.argv) == 1:
 
         # DEBUG_MODE = "viz" 
-        DEBUG_MODE = "distribution"
-        # DEBUG_MODE = "process"
-        # DEBUG_FILE = ""
+        # DEBUG_MODE = "distribution"
+        DEBUG_MODE = "process"
+        DEBUG_FILE = ""
 
         logger.warning(f"No CLI args found. Switching to VS Code Debug Mode: [{DEBUG_MODE}]")
         
-        if DEBUG_MODE == "viz": sys.argv.extend(["viz"])
+        if DEBUG_MODE == "viz": sys.argv.extend(["viz", DEBUG_FILE])
         elif DEBUG_MODE == "process": sys.argv.extend(["process"])
         elif DEBUG_MODE == "distribution": sys.argv.extend(["distribution"])
 
