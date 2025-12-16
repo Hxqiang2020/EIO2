@@ -433,8 +433,8 @@ def main():
     parser = argparse.ArgumentParser(description="G1 Motion Retargeting Pipeline")
     subparsers = parser.add_subparsers(dest="command", help="Commands: process | viz")
     subparsers.add_parser("process", help="Batch process dataset")
+    subparsers.add_parser("distribution", help="distribution process dataset")
     parser_viz = subparsers.add_parser("viz", help="Visualize motion")
-    parser_viz = subparsers.add_parser("distribution", help="distribution process dataset")
     parser_viz.add_argument("file", type=str, help="Filename")
     
     if len(sys.argv) == 1:
@@ -442,11 +442,11 @@ def main():
         # DEBUG_MODE = "viz" 
         DEBUG_MODE = "distribution"
         # DEBUG_MODE = "process"
-        DEBUG_FILE = ""
+        # DEBUG_FILE = ""
 
         logger.warning(f"No CLI args found. Switching to VS Code Debug Mode: [{DEBUG_MODE}]")
         
-        if DEBUG_MODE == "viz": sys.argv.extend(["viz", DEBUG_FILE])
+        if DEBUG_MODE == "viz": sys.argv.extend(["viz"])
         elif DEBUG_MODE == "process": sys.argv.extend(["process"])
         elif DEBUG_MODE == "distribution": sys.argv.extend(["distribution"])
 
