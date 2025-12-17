@@ -67,17 +67,17 @@ class GlobalConfig:
     REMOTE_PATH = "/home/hx/code/EIO2"
     root_dir: Path = Path(REMOTE_PATH)
 
-    # retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_g1.json"
-    # robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
-    # target_dir: Path = root_dir / "Datasets/target_data/g1/amass"
-    # bad_dir: Path = root_dir / "Datasets/bad_data/g1/amass"
-    # src_dir: Path = root_dir / "Datasets/source_data/amass"
+    retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_g1.json"
+    robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
+    target_dir: Path = root_dir / "Datasets/target_data/g1/test3_new"
+    bad_dir: Path = root_dir / "Datasets/bad_data/g1/amass"
+    src_dir: Path = root_dir / "Datasets/source_data/g1/test3_new"
 
-    retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_o1.json"
-    robot_xml: Path = root_dir / "assets/robots/o1/o1.xml"
-    src_dir: Path = root_dir / "Datasets/source_data//o1/test"
-    target_dir: Path = root_dir / "Datasets/target_data/o1/test"
-    bad_dir: Path = root_dir / "Datasets/bad_data/o1/test"
+    # retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_o1.json"
+    # robot_xml: Path = root_dir / "assets/robots/o1/o1.xml"
+    # src_dir: Path = root_dir / "Datasets/source_data//o1/test"
+    # target_dir: Path = root_dir / "Datasets/target_data/o1/test"
+    # bad_dir: Path = root_dir / "Datasets/bad_data/o1/test"
     
     log_dir: Path = root_dir / "logs"
 
@@ -404,10 +404,10 @@ class PipelineController:
             "body_rot": body_rot.astype(np.float32),
             "body_lin_vel": body_lin_vel.astype(np.float32),
             "body_ang_vel": body_ang_vel.astype(np.float32),
-            "joint_pos": joint_pos.astype(np.float32),
-            "joint_vel": joint_vel.astype(np.float32),
-            "relabel_root_rot": relabel_root_rot.astype(np.float32),
-            "relabel_root_trans": relabel_root_trans.astype(np.float32),
+            "reset_joint_pos": joint_pos.astype(np.float32),
+            "reset_joint_vel": joint_vel.astype(np.float32),
+            "reset_root_rot": relabel_root_rot.astype(np.float32),
+            "reset_root_trans": relabel_root_trans.astype(np.float32),
             "robot": "unitree.g1_29dof",
         }
         

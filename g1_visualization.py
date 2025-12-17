@@ -99,14 +99,12 @@ class MotionVisualizer:
     def update_viewer(self, viewer):
         curr_key = self.motion_keys[self.motion_id]
         curr_motion = self.motion_data[curr_key]
-        curr_time = int(self.time_step / self.dt) % curr_motion['joint_pos'].shape[0]
+        curr_time = int(self.time_step / self.dt) % curr_motion['reset_joint_pos'].shape[0]
 
-        body_pos = curr_motion["body_pos"]
-        body_rot = curr_motion["body_rot"]
-        joint_pos = curr_motion["joint_pos"]
-        root_trans = body_pos[:, 0, :]
-        root_rot = body_rot[:, 0, :]
-
+        joint_pos = curr_motion["reset_joint_pos"]
+        root_trans = curr_motion['reset_root_trans']
+        root_rot = curr_motion['reset_root_rot']
+        
         self.data.qpos[:3] = root_trans[curr_time]
         self.data.qpos[3:7] = root_rot[curr_time]
         self.data.qpos[7:] = joint_pos[curr_time]
