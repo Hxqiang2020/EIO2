@@ -146,6 +146,7 @@ class RobotVisualizer:
             rgba=rgba.astype(np.float32)
         )
         scene.ngeom += 1
+        
     def add_visual_capsule(self, scene, point1, point2, radius, rgba):
         if scene.ngeom >= scene.maxgeom:
             return
@@ -445,7 +446,7 @@ class MotionVisualizer:
             plt.ioff()
 
 def main():
-    motion_file = "Datasets/source_data//g1/amass"
+    motion_file = "Datasets/target_data//g1/amass"
     humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
 
     data = Data_Loader.load_motion_data(motion_file)
