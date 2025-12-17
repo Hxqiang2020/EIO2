@@ -67,12 +67,18 @@ class GlobalConfig:
     REMOTE_PATH = "/home/hx/code/EIO2"
     root_dir: Path = Path(REMOTE_PATH)
 
-    retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_g1.json"
-    robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
+    # retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_g1.json"
+    # robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
+    # target_dir: Path = root_dir / "Datasets/target_data/g1/amass"
+    # bad_dir: Path = root_dir / "Datasets/bad_data/g1/amass"
+    # src_dir: Path = root_dir / "Datasets/source_data/amass"
+
+    retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_o1.json"
+    robot_xml: Path = root_dir / "assets/robots/o1/o1.xml"
+    src_dir: Path = root_dir / "Datasets/source_data//o1/test"
+    target_dir: Path = root_dir / "Datasets/target_data/o1/test"
+    bad_dir: Path = root_dir / "Datasets/bad_data/o1/test"
     
-    bad_dir: Path = root_dir / "Datasets/bad_data"
-    src_dir: Path = root_dir / "Datasets/source_data/test"
-    target_dir: Path = root_dir / "Datasets/target_data/g1/test"
     log_dir: Path = root_dir / "logs"
 
     human_height: float = 1.60
@@ -441,9 +447,9 @@ def main():
     
     if len(sys.argv) == 1:
 
-        # DEBUG_MODE = "viz" 
+        DEBUG_MODE = "viz" 
         # DEBUG_MODE = "distribution"
-        DEBUG_MODE = "process"
+        # DEBUG_MODE = "process"
         DEBUG_FILE = ""
 
         logger.warning(f"No CLI args found. Switching to VS Code Debug Mode: [{DEBUG_MODE}]")
