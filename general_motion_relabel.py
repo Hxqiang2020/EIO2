@@ -207,7 +207,7 @@ class MotionVisualizer:
         ax.add_collection3d(Line3DCollection(bone_segments, colors="black", linewidths=1.5, alpha=0.6))
 
         rot_mats = R.from_quat(quat_xyzw).as_matrix()  # (N,3,3)
-        scale = 0.01
+        scale = 0.08
         x_ends = pose_xyz + scale * rot_mats[:, :, 0]
         y_ends = pose_xyz + scale * rot_mats[:, :, 1]
         z_ends = pose_xyz + scale * rot_mats[:, :, 2]
@@ -221,8 +221,8 @@ class MotionVisualizer:
         ax.add_collection3d(Line3DCollection(z_segs, colors="blue", linewidths=1.2))
 
         ax.scatter(pose_xyz[:, 0], pose_xyz[:, 1], pose_xyz[:, 2], c=point_color, s=15)
-        for i, (x, y, z) in enumerate(pose_xyz):
-            ax.text(x, y, z, str(i), fontsize=12, ha='center', va='bottom', color='black')
+        # for i, (x, y, z) in enumerate(pose_xyz):
+        #     ax.text(x, y, z, str(i), fontsize=12, ha='center', va='bottom', color='black')
 
     def _draw_frame(self, frame_idx: int):
         ax = self.ax_full
@@ -460,7 +460,17 @@ def main():
     if args.command == "process": controller.process_dataset()
     elif args.command == "distribution": controller.process_dataset_distribution()
     elif args.command == "viz":
-        for file in os.listdir(config.src_dir):
+        for i in range(50):
+            all_files =os.listdir(config.src_dir)
+            file_num = len(os.listdir(config.src_dir))
+            if file_num == 0:
+                print("No files to visualize.")
+                return
+            elif file_num < 50:
+                random_idx = i % file_num
+            else:
+                random_idx = np.random.randint(0, file_num)
+            file = all_files[random_idx]
             file_name = os.path.basename(file)
             controller.visualize_file(file_name)
 
