@@ -153,6 +153,7 @@ class MotionVisualizer:
         self._switch_request = 0
 
         self.show_rotation = True
+        self.show_grig = True
 
         self.keys: List[str] = list(self.data.keys())
         self.data_len = len(self.keys)
@@ -234,6 +235,9 @@ class MotionVisualizer:
             if self.num_frames > 0:
                 self._render(self.current_frame, force_draw=True)
 
+        elif k == "g":
+            self.show_grig = not self.show_grig
+
         elif k in ["q", "escape"]:
             self.is_closed = True
             plt.close(self.fig)
@@ -283,7 +287,7 @@ class MotionVisualizer:
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
-        ax.grid(False)
+        ax.grid(self.show_grig)
 
     def _init_plot(self):
         # full body
@@ -369,9 +373,10 @@ class MotionVisualizer:
 
         center = np.mean(xyz, axis=0)
         title = (
-            f"[{self.curr_data_id+1}/{self.data_len}] {self.curr_key} | "
-            f"Full | Frame {frame_idx}/{self.num_frames} | "
-            f"fps={self.play_fps:.2f} | rotation={'on' if self.show_rotation else 'off'}"
+            f"[{self.curr_data_id+1}/{self.data_len}] {self.curr_key}\n"
+            f"Full | Frame {frame_idx}/{self.num_frames}\n"
+            f"fps={self.play_fps:.2f}\n"
+            f"rotation={'on' if self.show_rotation else 'off'}"
         )
         self._set_limits_and_title(self.ax_full, title, center)
         self._update_bones(self.full_bones, xyz, self.body_bone_pairs)
@@ -380,7 +385,12 @@ class MotionVisualizer:
         kp_xyz = xyz[self.keypoints_indices]
         kp_wxyz = wxyz[self.keypoints_indices]
         kp_center = np.mean(kp_xyz, axis=0)
-        kp_title = f"[{self.curr_data_id+1}/{self.data_len}] {self.curr_key} | Keypoints | Frame {frame_idx}/{self.num_frames}"
+        kp_title = (
+            f"[{self.curr_data_id+1}/{self.data_len}] {self.curr_key} \n"
+            f"Keypoints | Frame {frame_idx}/{self.num_frames}\n"
+            f"fps={self.play_fps:.2f}\n"
+            f"rotation={'on' if self.show_rotation else 'off'}"
+        )
         self._set_limits_and_title(self.ax_kp, kp_title, kp_center)
         self._update_bones(self.kp_bones, kp_xyz, self.kp_bone_pairs)
         self._update_points(self.kp_pts, kp_xyz)
