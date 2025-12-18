@@ -1,11 +1,12 @@
+
 import os
 import time
 import joblib
 import mujoco
 import mujoco.viewer
 import numpy as np
-from typing import List, Dict
-
+from typing import Dict, Any, List, Optional
+from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Rotation as R
 
 import matplotlib.pyplot as plt
@@ -115,6 +116,316 @@ class Data_Loader:
                 print(f"Error loading {fname}: {e}")
 
         return data
+    
+class MotionVisualizer:
+
+    def __init__(self, data: Dict[str, Dict[str, Any]], bad_dir: str, fps: float = 50.0):
+        self.data = data
+        self.bad_dir = bad_dir
+
+        self.play_fps = float(fps)
+        self.is_paused = False
+        self.is_closed = False
+        self._switch_request = 0
+
+        self.show_rotation = True
+
+        self.keys: List[str] = list(self.data.keys())
+        self.data_len = len(self.keys)
+        self.curr_data_id = 0
+
+        self.curr_key: Optional[str] = None
+        self.xyz: Optional[np.ndarray] = None   # (T,J,3)
+        self.wxyz: Optional[np.ndarray] = None  # (T,J,4)
+        self.num_frames = 0
+        self.current_frame = 0
+
+        self.keypoints_indices = [HUMAN_BODY_LINKS.index(l) for l in HUMAN_KEYPOINTS_LINKS]
+
+        self.body_links_parent_indices, self.keypoints_parent_indices = self._compute_parent_indices()
+        self.body_bone_pairs = [(i, p) for i, p in enumerate(self.body_links_parent_indices) if p != -1]
+        self.kp_bone_pairs = [(i, p) for i, p in enumerate(self.keypoints_parent_indices) if p != -1]
+
+        self.fig = plt.figure(figsize=(16, 8))
+        self.ax_full = self.fig.add_subplot(121, projection="3d")
+        self.ax_kp = self.fig.add_subplot(122, projection="3d")
+
+        self.fig.canvas.mpl_connect("key_press_event", self._on_key)
+        self.fig.canvas.mpl_connect("close_event", self._on_close)
+
+        self._setup_axis(self.ax_full)
+        self._setup_axis(self.ax_kp)
+
+        self._init_plot()
+
+        if self.data_len > 0:
+            self._load_current_data()
+            self._render(frame_idx=0, force_draw=True)
+
+    def _on_close(self, event):
+        self.is_closed = True
+
+    def _on_key(self, event):
+        k = (event.key or "").lower()
+
+        if k == " ":
+            self.is_paused = not self.is_paused
+
+        elif k == "r":
+            self.current_frame = 0
+
+        elif k in ["n", "right"]:
+            self._switch_request = +1
+
+        elif k in ["p", "left"]:
+            self._switch_request = -1
+
+        elif k == "b":
+            if self.curr_key is not None:
+                os.makedirs(self.bad_dir, exist_ok=True)
+                target = f"{self.bad_dir}/{self.curr_key}.pkl"
+                joblib.dump(self.data[self.curr_key], target)
+
+        elif k in ["+", "="]:
+            self._set_play_fps(self.play_fps * 1.25)
+        elif k in ["-", "_"]:
+            self._set_play_fps(self.play_fps / 1.25)
+        elif k == "0":
+            self._set_play_fps(50.0)
+
+        elif k in [".", ">"]:
+            if self.num_frames > 0:
+                self.is_paused = True
+                self.current_frame = (self.current_frame + 1) % self.num_frames
+                self._render(self.current_frame, force_draw=True)
+        elif k in [",", "<"]:
+            if self.num_frames > 0:
+                self.is_paused = True
+                self.current_frame = (self.current_frame - 1) % self.num_frames
+                self._render(self.current_frame, force_draw=True)
+
+        elif k == "t":
+            self.show_rotation = not self.show_rotation
+
+            if self.num_frames > 0:
+                self._render(self.current_frame, force_draw=True)
+
+        elif k in ["q", "escape"]:
+            self.is_closed = True
+            plt.close(self.fig)
+
+    def _set_play_fps(self, new_fps: float):
+        new_fps = float(new_fps)
+        new_fps = max(1.0, min(new_fps, 120.0))
+        self.play_fps = new_fps
+
+    def _load_current_data(self):
+        if self.data_len == 0:
+            self.curr_key = None
+            self.xyz = None
+            self.wxyz = None
+            self.num_frames = 0
+            self.current_frame = 0
+            return
+
+        self.curr_data_id %= self.data_len
+        self.curr_key = self.keys[self.curr_data_id]
+        curr = self.data[self.curr_key]
+
+        self.xyz = np.asarray(curr["body_pos"])   # (T,J,3)
+        self.wxyz = np.asarray(curr["body_rot"])  # (T,J,4) wxyz
+
+        self.num_frames = int(self.xyz.shape[0])
+        self.current_frame = 0
+
+    def _compute_parent_indices(self):
+        body_parent = []
+        for link in HUMAN_BODY_LINKS:
+            parent = HUMAN_BODY_LINKS_PARENT_MAP.get(link, "world")
+            while parent not in HUMAN_BODY_LINKS and parent != "world":
+                parent = HUMAN_BODY_LINKS_PARENT_MAP.get(parent, "world")
+            body_parent.append(-1 if parent == "world" else HUMAN_BODY_LINKS.index(parent))
+
+        kp_parent = []
+        for link in HUMAN_KEYPOINTS_LINKS:
+            parent = HUMAN_KEYPOINTS_PARENT_MAP.get(link, "world")
+            while parent not in HUMAN_KEYPOINTS_LINKS and parent != "world":
+                parent = HUMAN_KEYPOINTS_PARENT_MAP.get(parent, "world")
+            kp_parent.append(-1 if parent == "world" else HUMAN_KEYPOINTS_LINKS.index(parent))
+
+        return body_parent, kp_parent
+
+    def _setup_axis(self, ax):
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        ax.grid(False)
+
+    def _init_plot(self):
+        # full body
+        self.full_bones = Line3DCollection([], colors="black", linewidths=1.5, alpha=0.6)
+        self.full_x = Line3DCollection([], colors="red", linewidths=1.2)
+        self.full_y = Line3DCollection([], colors="green", linewidths=1.2)
+        self.full_z = Line3DCollection([], colors="blue", linewidths=1.2)
+        self.full_pts = self.ax_full.scatter([], [], [], c="red", s=15)
+
+        self.ax_full.add_collection3d(self.full_bones)
+        self.ax_full.add_collection3d(self.full_x)
+        self.ax_full.add_collection3d(self.full_y)
+        self.ax_full.add_collection3d(self.full_z)
+
+        # keypoint body
+        self.kp_bones = Line3DCollection([], colors="black", linewidths=1.5, alpha=0.6)
+        self.kp_x = Line3DCollection([], colors="red", linewidths=1.2)
+        self.kp_y = Line3DCollection([], colors="green", linewidths=1.2)
+        self.kp_z = Line3DCollection([], colors="blue", linewidths=1.2)
+        self.kp_pts = self.ax_kp.scatter([], [], [], c="orange", s=15)
+
+        self.ax_kp.add_collection3d(self.kp_bones)
+        self.ax_kp.add_collection3d(self.kp_x)
+        self.ax_kp.add_collection3d(self.kp_y)
+        self.ax_kp.add_collection3d(self.kp_z)
+
+        self._set_rotation_visible(True)
+
+    def _set_rotation_visible(self, visible: bool):
+        for col in [self.full_x, self.full_y, self.full_z, self.kp_x, self.kp_y, self.kp_z]:
+            col.set_visible(visible)
+
+    def _set_limits_and_title(self, ax, title: str, center: np.ndarray):
+        ax.set_title(title)
+        ax.set_xlim([center[0] - 0.8, center[0] + 0.8])
+        ax.set_ylim([center[1] - 0.8, center[1] + 0.8])
+        ax.set_zlim([0.0, 1.8])
+
+    def _update_bones(self, bones_collection: Line3DCollection, pose_xyz: np.ndarray, pairs: List[tuple]):
+        if len(pairs) == 0:
+            bones_collection.set_segments([])
+            return
+        i_idx = np.array([i for i, _ in pairs], dtype=np.int64)
+        p_idx = np.array([p for _, p in pairs], dtype=np.int64)
+        segs = np.stack([pose_xyz[i_idx], pose_xyz[p_idx]], axis=1)  # (nb,2,3)
+        bones_collection.set_segments(segs)
+
+    def _update_points(self, scatter, pose_xyz: np.ndarray):
+        scatter._offsets3d = (pose_xyz[:, 0], pose_xyz[:, 1], pose_xyz[:, 2])
+
+    def _update_rotations(self, xcol, ycol, zcol, pose_xyz: np.ndarray, quat_wxyz: np.ndarray, scale: float = 0.08):
+        quat_xyzw = quat_wxyz[:, [1, 2, 3, 0]]
+        rot_mats = R.from_quat(quat_xyzw).as_matrix()  # (N,3,3)
+
+        x_ends = pose_xyz + scale * rot_mats[:, :, 0]
+        y_ends = pose_xyz + scale * rot_mats[:, :, 1]
+        z_ends = pose_xyz + scale * rot_mats[:, :, 2]
+
+        xcol.set_segments(np.stack([pose_xyz, x_ends], axis=1))
+        ycol.set_segments(np.stack([pose_xyz, y_ends], axis=1))
+        zcol.set_segments(np.stack([pose_xyz, z_ends], axis=1))
+
+    def _redraw(self, force_draw: bool):
+        if force_draw:
+            self.fig.canvas.draw()
+        else:
+            self.fig.canvas.draw_idle()
+
+        try:
+            self.fig.canvas.flush_events()
+        except Exception:
+            plt.pause(0)
+
+    def _render(self, frame_idx: int, force_draw: bool = False):
+        if self.xyz is None or self.wxyz is None or self.curr_key is None or self.num_frames <= 0:
+            self._redraw(force_draw=True)
+            return
+
+        frame_idx %= self.num_frames
+
+        xyz = self.xyz[frame_idx]      # (J,3)
+        wxyz = self.wxyz[frame_idx]    # (J,4)
+
+        center = np.mean(xyz, axis=0)
+        title = (
+            f"[{self.curr_data_id+1}/{self.data_len}] {self.curr_key} | "
+            f"Full | Frame {frame_idx}/{self.num_frames} | "
+            f"fps={self.play_fps:.2f} | rotation={'on' if self.show_rotation else 'off'}"
+        )
+        self._set_limits_and_title(self.ax_full, title, center)
+        self._update_bones(self.full_bones, xyz, self.body_bone_pairs)
+        self._update_points(self.full_pts, xyz)
+
+        kp_xyz = xyz[self.keypoints_indices]
+        kp_wxyz = wxyz[self.keypoints_indices]
+        kp_center = np.mean(kp_xyz, axis=0)
+        kp_title = f"[{self.curr_data_id+1}/{self.data_len}] {self.curr_key} | Keypoints | Frame {frame_idx}/{self.num_frames}"
+        self._set_limits_and_title(self.ax_kp, kp_title, kp_center)
+        self._update_bones(self.kp_bones, kp_xyz, self.kp_bone_pairs)
+        self._update_points(self.kp_pts, kp_xyz)
+
+        self._set_rotation_visible(self.show_rotation)
+        if self.show_rotation:
+            self._update_rotations(self.full_x, self.full_y, self.full_z, xyz, wxyz)
+            self._update_rotations(self.kp_x, self.kp_y, self.kp_z, kp_xyz, kp_wxyz)
+
+        self._redraw(force_draw=force_draw)
+
+    def run(self):
+        if self.data_len == 0:
+            raise ValueError("data is empty")
+
+        plt.ion()
+        try:
+            plt.show(block=False)
+        except Exception:
+            pass
+
+        next_tick = time.perf_counter()
+        dropped_frames = 0
+
+        while not self.is_closed:
+            if self._switch_request != 0:
+                self.curr_data_id = (self.curr_data_id + self._switch_request) % self.data_len
+                self._switch_request = 0
+                self.is_paused = False
+                self._load_current_data()
+                self.current_frame = 0
+                self._render(0, force_draw=True)
+
+                next_tick = time.perf_counter() + (1.0 / self.play_fps)
+                continue
+
+            if self.is_paused:
+                self._redraw(force_draw=False)  #####保持绘制这一帧画面,不要更新帧,但是可以响应GUI窗口重置和切换事件,保持短暂休眠
+                time.sleep(0.01)
+                next_tick = time.perf_counter() + (1.0 / self.play_fps) #######next_tick重置为现在加上未来一帧时间
+                continue
+
+            if self.num_frames <= 0:
+                self._redraw(force_draw=False)  #####没有数据,防止空转
+                time.sleep(0.01)
+                next_tick = time.perf_counter() + (1.0 / self.play_fps) #######next_tick重置为现在加上未来一帧时间
+                continue
+
+            period = 1.0 / max(self.play_fps, 1e-6)  #####每帧间隔
+            now = time.perf_counter()
+
+            if now < next_tick:
+                time.sleep(next_tick - now)  ######避免渲染太快,绘制快于数据帧率,保持数据帧率
+                now = time.perf_counter()
+
+            if now - next_tick > period:
+                behind = now - next_tick  ######检测now是否在next之后,检测渲染是否过慢,导致延后
+                skip = int(behind // period) ######计算渲染过慢导致的数据延后了多少帧
+                if skip > 0:
+                    self.current_frame = (self.current_frame + skip) % self.num_frames   ######追赶延后的帧数,保持数据帧率
+
+                    dropped_frames += skip
+                    next_tick += skip * period ######将 next_tick向前推进 skip * period，对齐到“本该播放的那一帧”的时间
+            self._render(self.current_frame, force_draw=False)
+            self.current_frame = (self.current_frame + 1) % self.num_frames
+
+            next_tick += period
+
+        plt.ioff()
 
 class RobotVisualizer:
     def __init__(self, data, humanoid_xml, dt=1/50):
@@ -225,231 +536,12 @@ class RobotVisualizer:
                 if elapsed < self.dt:
                     time.sleep(self.dt - elapsed)
 
-
-class MotionVisualizer:
-
-    def __init__(self, data: Dict, bad_dir: Dict):
-
-        self.data = data
-        self.bad_dir = bad_dir
-        
-        self.is_paused = False
-        self.is_closed = False
-
-        self.keys = list(self.data.keys())
-        self.data_len = len(self.keys)
-        self.curr_data_id = 0
-
-        self.curr_key = None
-        self.xyz = None
-        self.wxyz = None
-        self.num_frames = 0
-        self.current_frame = 0
-        self._switch_request = 0
-
-        self.fig = plt.figure(figsize=(16, 8))
-        self.ax_full = self.fig.add_subplot(121, projection="3d")
-        self.ax_kp = self.fig.add_subplot(122, projection="3d")
-
-        self.fig.canvas.mpl_connect("key_press_event", self._on_key)
-        self.fig.canvas.mpl_connect("close_event", self._on_close)
-
-        self.keypoints_indices = [HUMAN_BODY_LINKS.index(l) for l in HUMAN_KEYPOINTS_LINKS]
-
-        self._compute_parent_indices()
-
-        if self.data_len > 0:
-            self._load_current_data()
-
-    def _on_close(self, event):
-        self.is_closed = True
-
-    def _compute_parent_indices(self):
-        self.body_links_parent_indices = []
-        for link in HUMAN_BODY_LINKS:
-            parent = HUMAN_BODY_LINKS_PARENT_MAP.get(link, "world")
-            while parent not in HUMAN_BODY_LINKS and parent != "world":
-                parent = HUMAN_BODY_LINKS_PARENT_MAP.get(parent, "world")
-            if parent == "world":
-                self.body_links_parent_indices.append(-1)
-            else:
-                self.body_links_parent_indices.append(HUMAN_BODY_LINKS.index(parent))
-
-        self.keypoints_parent_indices = []
-        for link in HUMAN_KEYPOINTS_LINKS:
-            parent = HUMAN_KEYPOINTS_PARENT_MAP.get(link, "world")
-            while parent not in HUMAN_KEYPOINTS_LINKS and parent != "world":
-                parent = HUMAN_KEYPOINTS_PARENT_MAP.get(parent, "world")
-            if parent == "world":
-                self.keypoints_parent_indices.append(-1)
-            else:
-                self.keypoints_parent_indices.append(HUMAN_KEYPOINTS_LINKS.index(parent))
-
-    def _on_key(self, event):
-
-        k = (event.key or "").lower()
-
-        if k == " ":
-            self.is_paused = not self.is_paused
-
-        elif k == "r":
-            self.current_frame = 0
-
-        elif k in ["n", "right"]:
-            self._switch_request = +1
-
-        elif k in ["p", "left"]:
-            self._switch_request = -1
-
-        elif k == "b":
-            if hasattr(self, "file_path") and hasattr(self, "bad_dir"):
-                os.makedirs(self.bad_dir, exist_ok=True)
-                target_path = f"{self.bad_dir}/{self.curr_key}.pkl"
-                joblib.dump(self.data[self.curr_key], target_path)
-
-        elif k in ["q", "escape"]:
-            self.is_closed = True
-            plt.close(self.fig)
-
-    def _load_current_data(self):
-        if self.data_len == 0:
-            self.curr_key = None
-            self.xyz = None
-            self.wxyz = None
-            self.num_frames = 0
-            self.current_frame = 0
-            return
-
-        self.curr_data_id %= self.data_len
-        self.curr_key = self.keys[self.curr_data_id]
-        curr_data = self.data[self.curr_key]
-
-        self.xyz = np.asarray(curr_data["body_pos"])   # (T, J, 3)
-        self.wxyz = np.asarray(curr_data["body_rot"])  # (T, J, 4)
-
-        self.num_frames = int(self.xyz.shape[0])
-        self.current_frame = 0
-
-        self.ax_full.clear()
-        self.ax_kp.clear()
-        self.fig.canvas.draw_idle()
-
-    def _set_axes_common(self, ax, title, center):
-        ax.set_title(title)
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.set_zlabel("Z")
-
-        ax.set_xlim([center[0] - 0.8, center[0] + 0.8])
-        ax.set_ylim([center[1] - 0.8, center[1] + 0.8])
-        ax.set_zlim([0.0, 1.8])
-
-    def _draw_pose_and_rot(self, ax, pose_xyz, quat_xyzw, parent_indices, point_color="red"):
-
-        bone_segments = []
-        for i, p in enumerate(parent_indices):
-            if p != -1:
-                bone_segments.append([pose_xyz[i], pose_xyz[p]])
-        ax.add_collection3d(Line3DCollection(bone_segments, colors="black", linewidths=1.5, alpha=0.6))
-
-        rot_mats = R.from_quat(quat_xyzw).as_matrix()  # (N,3,3)
-        scale = 0.08
-        x_ends = pose_xyz + scale * rot_mats[:, :, 0]
-        y_ends = pose_xyz + scale * rot_mats[:, :, 1]
-        z_ends = pose_xyz + scale * rot_mats[:, :, 2]
-
-        x_segs = [[pose_xyz[i], x_ends[i]] for i in range(len(pose_xyz))]
-        y_segs = [[pose_xyz[i], y_ends[i]] for i in range(len(pose_xyz))]
-        z_segs = [[pose_xyz[i], z_ends[i]] for i in range(len(pose_xyz))]
-
-        ax.add_collection3d(Line3DCollection(x_segs, colors="red", linewidths=1.2))
-        ax.add_collection3d(Line3DCollection(y_segs, colors="green", linewidths=1.2))
-        ax.add_collection3d(Line3DCollection(z_segs, colors="blue", linewidths=1.2))
-
-        ax.scatter(pose_xyz[:, 0], pose_xyz[:, 1], pose_xyz[:, 2], c=point_color, s=15)
-        # for i, (x, y, z) in enumerate(pose_xyz):
-        #     ax.text(x, y, z, str(i), fontsize=12, ha='center', va='bottom', color='black')
-
-    def _draw_frame(self, frame_idx: int):
-        ax = self.ax_full
-        ax.clear()
-
-        current_xyz = self.xyz[frame_idx]       # (J, 3)
-        current_wxyz = self.wxyz[frame_idx]     # (J, 4)
-
-        center = np.mean(current_xyz, axis=0)
-        title = f"[{self.curr_data_id+1}/{self.data_len}] {self.curr_key} | Full | Frame {frame_idx}/{self.num_frames}"
-        self._set_axes_common(ax, title, center)
-
-        self._draw_pose_and_rot(
-            ax=ax,
-            pose_xyz=current_xyz,
-            quat_xyzw=current_wxyz[:, [1, 2, 3, 0]],
-            parent_indices=self.body_links_parent_indices,
-            point_color="red",
-        )
-
-    def _draw_keypoint_frame(self, frame_idx: int):
-        ax = self.ax_kp
-        ax.clear()
-
-        full_xyz = self.xyz[frame_idx]          # (J, 3)
-        full_wxyz = self.wxyz[frame_idx]        # (J, 4)
-        kp_xyz = full_xyz[self.keypoints_indices]        # (K, 3)
-        kp_wxyz = full_wxyz[self.keypoints_indices]      # (K, 4)
-
-        center = np.mean(kp_xyz, axis=0)
-        title = f"[{self.curr_data_id+1}/{self.data_len}] {self.curr_key} | Keypoints | Frame {frame_idx}/{self.num_frames}"
-        self._set_axes_common(ax, title, center)
-
-        self._draw_pose_and_rot(
-            ax=ax,
-            pose_xyz=kp_xyz,
-            quat_xyzw=kp_wxyz[:, [1, 2, 3, 0]],
-            parent_indices=self.keypoints_parent_indices,
-            point_color="orange",
-        )
-      
-    def run(self):
-        
-        if self.data_len == 0:
-            raise ValueError("data is empty")
-
-        plt.ion()
-        try:
-            while not self.is_closed:
-                if self._switch_request != 0:
-                    self.curr_data_id = (self.curr_data_id + self._switch_request) % self.data_len
-                    self._switch_request = 0
-                    self._load_current_data()
-                    continue
-
-                if self.num_frames <= 0:
-                    plt.pause(0.1)
-                    continue
-
-                if not self.is_paused:
-                    if self.current_frame >= self.num_frames:
-                        self.current_frame = 0
-
-                    self._draw_frame(self.current_frame)
-                    self._draw_keypoint_frame(self.current_frame)
-
-                    self.current_frame = (self.current_frame + 1) % self.num_frames
-                    plt.draw()
-                    plt.pause(0.01)
-                else:
-                    plt.pause(0.1)
-        finally:
-            plt.ioff()
-
 def main():
-    motion_file = "Datasets/target_data/g1/amass"
-    bad_dir = "Datasets/target_data/g1/bad/amass"
+    motion_file = "Datasets/target_data/g1_29dof/X/251217"
     humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
+    bad_dir = "Datasets/target_data/g1/bad/amass"
 
     data = Data_Loader.load_motion_data(motion_file)
-
     Motion_viz = MotionVisualizer(data, bad_dir)
     RobotViz = RobotVisualizer(data, humanoid_xml)
 
@@ -458,4 +550,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

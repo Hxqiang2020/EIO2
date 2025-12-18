@@ -41,19 +41,19 @@ class MotionVisualizer:
         return data, keys
 
     def add_visual_sphere(self, scene, position, radius, rgba):
-        """添加球体几何图形到场景"""
+
         if scene.ngeom >= scene.maxgeom:
             return
         
         geom = scene.geoms[scene.ngeom]
-        # 初始化几何体为球体
+
         mujoco.mjv_initGeom(
             geom,
             type=mujoco.mjtGeom.mjGEOM_SPHERE,
-            size=np.array([radius, 0, 0]),  # 球体半径
-            pos=position.astype(np.float32),  # 位置
-            mat=np.eye(3).flatten(),  # 单位矩阵
-            rgba=rgba.astype(np.float32)  # 颜色
+            size=np.array([radius, 0, 0]),
+            pos=position.astype(np.float32),
+            mat=np.eye(3).flatten(),
+            rgba=rgba.astype(np.float32)
         )
         scene.ngeom += 1
     def add_visual_capsule(self, scene, point1, point2, radius, rgba):
@@ -133,8 +133,12 @@ class MotionVisualizer:
                     time.sleep(self.dt - elapsed)
 
 def main():
-    motion_file = "Datasets/target_data/g1/amass"
-    humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
+    # motion_file = "Datasets/target_data/g1/amass"
+    # humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
+
+    motion_file = "Datasets/target_data/o1/test1"
+    humanoid_xml = 'assets/robots/o1/o1.xml'
+
     visualizer = MotionVisualizer(motion_file, humanoid_xml)
     visualizer.run()
 
