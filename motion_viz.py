@@ -565,7 +565,7 @@ def main():
     humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
     bad_dir = "Datasets/target_data/g1/bad/amass"
 
-    data = Data_Loader.load_motion_data(motion_file)
+    data = Data_Loader.load_motion_data(motion_file, "pkl")
     Motion_viz = MotionVisualizer(data, bad_dir)
     RobotViz = RobotVisualizer(data, humanoid_xml)
 
