@@ -228,9 +228,10 @@ class RobotVisualizer:
 
 class MotionVisualizer:
 
-    def __init__(self, data: Dict):
+    def __init__(self, data: Dict, bad_dir: Dict):
 
         self.data = data
+        self.bad_dir = bad_dir
         
         self.is_paused = False
         self.is_closed = False
@@ -302,12 +303,9 @@ class MotionVisualizer:
 
         elif k == "b":
             if hasattr(self, "file_path") and hasattr(self, "bad_dir"):
-                import shutil
-                file = self.file_path
-                bad_dir = self.bad_dir
-                bad_dir.mkdir(parents=True, exist_ok=True)
-                target_path = bad_dir / file.name
-                shutil.copy(file, target_path)
+                os.makedirs(self.bad_dir, exist_ok=True)
+                target_path = f"{self.bad_dir}/{self.curr_key}.pkl"
+                joblib.dump(self.data[self.curr_key], target_path)
 
         elif k in ["q", "escape"]:
             self.is_closed = True
@@ -446,12 +444,13 @@ class MotionVisualizer:
             plt.ioff()
 
 def main():
-    motion_file = "Datasets/target_data//g1/amass"
+    motion_file = "Datasets/target_data/g1/amass"
+    bad_dir = "Datasets/target_data/g1/bad/amass"
     humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
 
     data = Data_Loader.load_motion_data(motion_file)
 
-    Motion_viz = MotionVisualizer(data)
+    Motion_viz = MotionVisualizer(data, bad_dir)
     RobotViz = RobotVisualizer(data, humanoid_xml)
 
     Motion_viz.run()
