@@ -1,6 +1,7 @@
 
 import os
 import time
+import json
 import joblib
 import mujoco
 import mujoco.viewer
@@ -95,25 +96,48 @@ HUMAN_KEYPOINTS_PARENT_MAP = {
 class Data_Loader:
 
     @staticmethod
-    def load_motion_data(motion_path):
+    def load_motion_data(motion_path, data_type="pkl"):
         
         data = {}
 
-        if motion_path.endswith('.pkl'):
-            key = motion_path[:-4]
-            motion_data = joblib.load(motion_path)
-            data[key] = motion_data
-            return data
-        
-        files = [f for f in os.listdir(motion_path) if f.endswith('.pkl')]
-        
-        for fname in files:
-            key = fname[:-4]
-            try:
-                motion_data = joblib.load(os.path.join(motion_path, fname))
+        if data_type == "pkl":
+
+            if motion_path.endswith('.pkl'):
+                key = motion_path[:-4]
+                motion_data = joblib.load(motion_path)
                 data[key] = motion_data
-            except Exception as e:
-                print(f"Error loading {fname}: {e}")
+                return data
+            
+            files = [f for f in os.listdir(motion_path) if f.endswith('.pkl')]
+            
+            for fname in files:
+                key = fname[:-4]
+                try:
+                    motion_data = joblib.load(os.path.join(motion_path, fname))
+                    data[key] = motion_data
+                except Exception as e:
+                    print(f"Error loading {fname}: {e}")
+
+        elif data_type == "json":
+
+            if motion_path.endswith('.json'):
+                key = motion_path[:-4]
+                with open(motion_path, 'r') as f:
+                    motion_data = json.load(f)
+                data[key] = motion_data
+                return data
+            
+            files = [f for f in os.listdir(motion_path) if f.endswith('.json')]
+            
+            for file in files:
+                key = file[:-4]
+                try:
+                    motion_file = os.path.join(motion_path, file)
+                    with open(motion_file, 'r') as f:
+                        motion_data = json.load(f)
+                    data[key] = motion_data
+                except Exception as e:
+                    print(f"Error loading {file}: {e}")
 
         return data
     
