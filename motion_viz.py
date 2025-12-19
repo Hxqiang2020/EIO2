@@ -124,6 +124,11 @@ class Data_Loader:
                 key = motion_path[:-4]
                 with open(motion_path, 'r') as f:
                     motion_data = json.load(f)
+                poses = motion_data.pop("poses")
+                motion_len = len(motion_data["poses"])
+                poses = np.asarray(poses).reshape(motion_len, -1, 7)
+                motion_data["body_pos"] = poses[:, :, :3]
+                motion_data["body_rot"] = poses[:, :, 3:]
                 data[key] = motion_data
                 return data
             
@@ -135,6 +140,11 @@ class Data_Loader:
                     motion_file = os.path.join(motion_path, file)
                     with open(motion_file, 'r') as f:
                         motion_data = json.load(f)
+                    poses = motion_data.pop("poses")
+                    motion_len = len(poses)
+                    poses = np.asarray(poses).reshape(motion_len, -1, 7)
+                    motion_data["body_pos"] = poses[:, :, :3]
+                    motion_data["body_rot"] = poses[:, :, 3:]
                     data[key] = motion_data
                 except Exception as e:
                     print(f"Error loading {file}: {e}")
@@ -171,7 +181,7 @@ class MotionVisualizer:
         self.body_bone_pairs = [(i, p) for i, p in enumerate(self.body_links_parent_indices) if p != -1]
         self.kp_bone_pairs = [(i, p) for i, p in enumerate(self.keypoints_parent_indices) if p != -1]
 
-        self.fig = plt.figure(figsize=(16, 8))
+        self.fig = plt.figure(figsize=(24, 16))
         self.ax_full = self.fig.add_subplot(121, projection="3d")
         self.ax_kp = self.fig.add_subplot(122, projection="3d")
 
@@ -571,9 +581,9 @@ class RobotVisualizer:
                     time.sleep(self.dt - elapsed)
 
 def main():
-    motion_file = "Datasets/target_data/g1_29dof/X/251217"
+    motion_file = "Datasets/target_data/g1_29dof/Xc/251217"
+    bad_dir = "Datasets/target_data/g1_29dof/bad/Xc/251217"
     humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
-    bad_dir = "Datasets/target_data/g1/bad/amass"
 
     data = Data_Loader.load_motion_data(motion_file, "pkl")
     Motion_viz = MotionVisualizer(data, bad_dir)
