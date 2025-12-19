@@ -69,10 +69,10 @@ class GlobalConfig:
 
     retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_g1.json"
     robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
-    target_dir: Path = root_dir / "Datasets/target_data/g1/amass1"
+    src_dir: Path = root_dir / "Datasets/source_data/g1/ue_walk"
+    target_dir: Path = root_dir / "Datasets/target_data/g1/ue_walk"
     bad_dir: Path = root_dir / "Datasets/bad_data/g1/amass"
-    src_dir: Path = root_dir / "Datasets/source_data/g1/amass1"
-
+    
     # retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_o1.json"
     # robot_xml: Path = root_dir / "assets/robots/o1/o1.xml"
     # src_dir: Path = root_dir / "Datasets/source_data//o1/test1"
@@ -373,7 +373,9 @@ class PipelineController:
         T = len(motion_data["poses"])
 
         human_motion = np.array(motion_data["poses"]).reshape(T, -1, 7)
-        keypoints_subset = human_motion[:, self.selected_indices, :]
+        keypoints_subset = human_motion[:, self.selected_indices, :].copy()
+        keypoints_subset[:, :, :2] = keypoints_subset[:, :, :2] -  keypoints_subset[:1, :1, :2]
+        keypoints_subset[:, :, 2] = keypoints_subset[:, :, 2] -  np.min(keypoints_subset[:, :, 2]) + 0.05
 
         body_pos = human_motion[:, :, :3].copy()
         body_pos[:, :, :2] = body_pos[:, :, :2] - body_pos[:1, :1, :2]

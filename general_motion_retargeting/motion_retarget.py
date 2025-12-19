@@ -179,7 +179,7 @@ class GeneralMotionRetargeting:
                 task = self.human_body_to_task2[i]
                 task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot[i]), pos[i]))
             
-    def retarget(self, human_data, offset_to_ground=True):
+    def retarget(self, human_data, offset_to_ground=False):
         
         self.configuration.data.qpos[:] = self.qpos_init
         self.configuration.data.qvel[:] = 0.
