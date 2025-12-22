@@ -152,31 +152,34 @@ class MotionLibOffline:
     
     def quat_slerp(self, q0: np.ndarray, q1: np.ndarray, weight: np.ndarray, eps: float = 1e-8) -> np.ndarray:
 
-        q0 = self.quat_normalize(self.to_float32(q0))
-        q1 = self.quat_normalize(self.to_float32(q1))
-        weight = self.to_float32(weight)
+        q0 = np.asarray(q0, dtype=np.float32)
+        q1 = np.asarray(q1, dtype=np.float32)
+        weight  = np.asarray(weight,  dtype=np.float32)
 
-        cos_half_theta = np.sum(q0 * q1, axis=-1, keepdims=True)
+        cos_half_theta = np.sum(q0 * q1, axis=-1)
+
         neg_mask = cos_half_theta < 0
-        q1 = np.where(neg_mask, -q1, q1)
+        q1 = q1.copy()
+        q1[neg_mask] = -q1[neg_mask]
+
         cos_half_theta = np.abs(cos_half_theta)
-
+        cos_half_theta = cos_half_theta[..., None]
         cos_half_theta = np.clip(cos_half_theta, -1.0, 1.0)
-        half_theta = np.arccos(cos_half_theta)
 
+        half_theta = np.arccos(cos_half_theta)
         sin_half_theta = np.sqrt(np.maximum(1.0 - cos_half_theta * cos_half_theta, 0.0))
 
-        small = sin_half_theta < 1e-3
-        sin_safe = np.where(small, 1.0, np.maximum(sin_half_theta, eps))
+        sin_safe = np.maximum(sin_half_theta, eps)
 
         ratioA = np.sin((1.0 - weight) * half_theta) / sin_safe
         ratioB = np.sin(weight * half_theta) / sin_safe
 
         new_q = ratioA * q0 + ratioB * q1
 
-        new_q = np.where(small, (1.0 - weight) * q0 + weight * q1, new_q)
+        new_q = np.where(np.abs(sin_half_theta) < 0.001, 0.5 * q0 + 0.5 * q1, new_q)
+        new_q = np.where(np.abs(cos_half_theta) >= 1.0, q0, new_q)
 
-        return self.quat_normalize(new_q)
+        return new_q
     
     def quat_normalize(self, quat: np.ndarray, eps: float = 1e-12) -> np.ndarray:
         quat = self.to_float32(quat)
