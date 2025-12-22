@@ -104,9 +104,6 @@ class MotionVisualizer:
         joint_pos = curr_motion["reset_joint_pos"]
         root_trans = curr_motion['reset_root_trans']
         root_rot = curr_motion['reset_root_rot']
-        # root_trans = curr_motion['body_pos'][:, 0, :]
-        # root_rot = curr_motion['body_rot'][:, 0, :]
-
         
         self.data.qpos[:3] = root_trans[curr_time]
         self.data.qpos[3:7] = root_rot[curr_time]
