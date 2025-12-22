@@ -133,7 +133,7 @@ class MotionVisualizer:
                     time.sleep(self.dt - elapsed)
 
 def main():
-    motion_file = "Datasets/target_data/g1/yubi"
+    motion_file = "Datasets/target_data/randomization_fps/A"
     humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
 
     # motion_file = "Datasets/target_data/o1/test1"

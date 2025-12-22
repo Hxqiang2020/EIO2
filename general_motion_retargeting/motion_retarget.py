@@ -105,7 +105,7 @@ class GeneralMotionRetargeting:
             
         self.setup_retarget_configuration()
         
-        self.qpos_init = self.configuration.data.qpos[7:].copy()
+        self.qpos_init = self.configuration.data.qpos[3:].copy()
         
         self.ground_offset = 0.0
 
@@ -178,8 +178,8 @@ class GeneralMotionRetargeting:
             
     def retarget(self, human_data, offset_to_ground=False):
         
-        self.configuration.data.qpos[7:] = self.qpos_init
-        self.configuration.data.qvel[6:] = 0.
+        self.configuration.data.qpos[3:] = self.qpos_init
+        self.configuration.data.qvel[3:] = 0.
         mj.mj_forward(self.configuration.model, self.configuration.data)
 
         pos, rot = human_data[:, :3], human_data[:, 3:]

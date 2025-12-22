@@ -581,8 +581,8 @@ class RobotVisualizer:
                     time.sleep(self.dt - elapsed)
 
 def main():
-    motion_file = "Datasets/target_data/g1_29dof/Xc/251217"
-    bad_dir = "Datasets/target_data/g1_29dof/bad/Xc/251217"
+    motion_file = "Datasets/target_data/randomization_fps/X/251217"
+    bad_dir = "Datasets/target_data/randomization_fps/X/251217"
     humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
 
     data = Data_Loader.load_motion_data(motion_file, "pkl")
