@@ -96,7 +96,7 @@ class MotionLibOffline:
             sample_time_internals = np.arange(-1, curr_num_frames - 1) * default_motion_dt
             sample_time_internals = sample_time_internals + (np.random.rand(*sample_time_internals.shape).astype(sample_time_internals.dtype) * 2.0 - 1.0) * 0.003
 
-            ##### 并计算离采样时间步前后最近的数据帧索引，并根据时间差计算插帧权重
+            ##### 计算离采样时间步前后最近的数据帧索引，并根据时间差计算插帧权重
 
             frame_idx0, frame_idx1, blend = self.calc_frame_blend(
                 sample_times_sec=sample_time_internals,
