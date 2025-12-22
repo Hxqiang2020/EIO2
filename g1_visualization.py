@@ -104,6 +104,9 @@ class MotionVisualizer:
         joint_pos = curr_motion["reset_joint_pos"]
         root_trans = curr_motion['reset_root_trans']
         root_rot = curr_motion['reset_root_rot']
+        # root_trans = curr_motion['body_pos'][:, 0, :]
+        # root_rot = curr_motion['body_rot'][:, 0, :]
+
         
         self.data.qpos[:3] = root_trans[curr_time]
         self.data.qpos[3:7] = root_rot[curr_time]
@@ -133,11 +136,11 @@ class MotionVisualizer:
                     time.sleep(self.dt - elapsed)
 
 def main():
-    # motion_file = "Datasets/target_data/g1/amass"
-    # humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
+    motion_file = "Datasets/target_data/g1/yubi"
+    humanoid_xml = 'assets/robots/g1/g1_29dof.xml'
 
-    motion_file = "Datasets/target_data/o1/test1"
-    humanoid_xml = 'assets/robots/o1/o1.xml'
+    # motion_file = "Datasets/target_data/o1/test1"
+    # humanoid_xml = 'assets/robots/o1/o1.xml'
 
     visualizer = MotionVisualizer(motion_file, humanoid_xml)
     visualizer.run()

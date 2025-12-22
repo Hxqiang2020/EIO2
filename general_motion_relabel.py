@@ -30,7 +30,7 @@ MODEL_CONVENTIONS = {
 
 try:
     from general_motion_retargeting import EGMR_ROOT_DIR
-    from cfgs.g1_gmr_cfg import UE_links, UE_link_parents, UE_keypoints_links, UE_keypoints_parents
+    from cfgs.g1_gmr_cfg import HUMAN_BODY_LINKS, HUMAN_BODY_LINKS_PARENT_MAP, HUMAN_KEYPOINT_LINKS, HUMAN_KEYPOINTS_PARENT_MAP#, CHECK_ORENTATION_MAP
     from general_motion_retargeting.motion_retarget import GeneralMotionRetargeting as GMR
 except ImportError as e:
     print(f"CRITICAL ERROR: Failed to import project dependencies. {e}")
@@ -69,8 +69,8 @@ class GlobalConfig:
 
     retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_g1.json"
     robot_xml: Path = root_dir / "assets/robots/g1/g1_29dof.xml"
-    src_dir: Path = root_dir / "Datasets/source_data/g1/ue_walk"
-    target_dir: Path = root_dir / "Datasets/target_data/g1/ue_walk"
+    src_dir: Path = root_dir / "Datasets/source_data/g1/yubi_zq"
+    target_dir: Path = root_dir / "Datasets/target_data/g1/yubi_zq"
     bad_dir: Path = root_dir / "Datasets/bad_data/g1/amass"
     
     # retarget_json: Path = root_dir / "cfgs/ik_configs/ue_to_o1.json"
@@ -152,12 +152,12 @@ class SkeletonStructure:
 
 
 class MotionVisualizer:
-    def __init__(self, xyz, wxyz, skeleton, keypoint_skeleton, selected_indices, file_path, bad_dir, title=""):
+    def __init__(self, xyz, wxyz, skeleton, keypoint_skeleton, keypoints_indices, file_path, bad_dir, title=""):
         self.xyz = xyz  # (T, J, 3)
         self.wxyz = wxyz  # (T, J, 4) [w, x, y, z]
         self.skeleton = skeleton
         self.keypoint_skeleton = keypoint_skeleton
-        self.selected_indices = np.asarray(selected_indices, dtype=np.int64)
+        self.keypoints_indices = np.asarray(keypoints_indices, dtype=np.int64)
         self.num_frames = len(self.xyz)
         self.title = title
         self.file_path = file_path
@@ -254,8 +254,8 @@ class MotionVisualizer:
 
         full_xyz = self.xyz[frame_idx]          # (J, 3)
         full_wxyz = self.wxyz[frame_idx]        # (J, 4)
-        kp_xyz = full_xyz[self.selected_indices]        # (K, 3)
-        kp_wxyz = full_wxyz[self.selected_indices]      # (K, 4)
+        kp_xyz = full_xyz[self.keypoints_indices]        # (K, 3)
+        kp_wxyz = full_wxyz[self.keypoints_indices]      # (K, 4)
 
         center = np.mean(kp_xyz, axis=0)
         self._set_axes_common(ax, f"{self.title} | Keypoints | Frame {frame_idx}/{self.num_frames}", center,)
@@ -292,7 +292,7 @@ class PipelineController:
         self.cfg = config
         self.cfg.validate()
         self.retargeter = None
-        self.selected_indices = []
+        self.keypoints_indices = []
 
         _, self.log_path = setup_logging(self.cfg.log_dir)
         logger.info(f"Pipeline initialized. Logs writing to: {self.log_path}")
@@ -300,6 +300,20 @@ class PipelineController:
             self.cfg.validate()
         except Exception:
             sys.exit(1)
+    
+    # def _init_orentation_map(self):
+
+    #     self.orent_child_indices =[]
+    #     self.orent_parent_indeices = []
+    #     self.orent_offset_axises = []
+
+    #     for child_link, parent_ref in CHECK_ORENTATION_MAP.items():
+    #         parent_link, parent_axis = parent_ref
+    #         self.orent_child_indices.append(UE_keypoints_links.index(child_link))
+    #         self.orent_parent_indices.append(UE_keypoints_links.index(parent_link))
+    #         self.orent_offset_axis.append(parent_axis)
+
+    #     self.orent_offset_axises = np.array(self.orent_offset_axises)
 
     def _init_retargeting(self):
         if self.retargeter is None:
@@ -310,9 +324,48 @@ class PipelineController:
                 actual_human_height=self.cfg.human_height
             )
             with open(self.cfg.retarget_json) as f: data = json.load(f)
-            # selected_links = list(data["human_scale_table"].keys())
-            selected_links = UE_keypoints_links
-            self.selected_indices = [UE_links.index(l) for l in selected_links]
+            self.keypoints_indices = [HUMAN_BODY_LINKS.index(l) for l in HUMAN_KEYPOINT_LINKS]
+
+    # def _check_orentation(kppoints_subset, thresh_rad = np.pi / 18):
+
+    #     kp_xyz, kp_wxyz = [:, :, :3], [:, :, 3:]
+    #     T, J = kp_xyz.shape[0], xyz.shape[1]
+    #     asset J == len(self.orent_offset_axis), f"keyponits number: {T} does not match the keypoints orent axis number: {len(self.orent_offset_axis)} "
+    #     
+    #     orent_child_xyz = kp_xyz[:, self.orent_child_indices, :]
+    #     orent_parent_xyz = kp_xyz[:, self.orent_parent_indices, :]
+    #     orent_parent_wxyz = kp_wxyz[:, self.orent_parent_indices, :]
+
+    #     global_xyz_orent_vec = orent_child_xyz - orent_parent_xyz
+    #     global_xyz_orent_vec = global_xyz_orent_vec / np.linalg.norm(global_xyz_roent_vec)
+
+    #     global_tgt_oren_vec = self.rotate_vec_quat(orent_parent_wxyz, self.orent_offset_axis)
+
+    #     dot_prodcuts = np.sum(global_xyz_orent_vec * global_tgt_orent_vec, axis=-1)
+    #     dot_products = np.clip(dot_products, -1.0, 1.0)
+    #     angl_rad = np.arccos(doct_products)
+
+    #     violations = angl_rad >= thresh_rad
+    #     is_valid = not np.any(violations)
+
+    #     return is_valid, angl_rad, violations
+    
+    # def rotate_vec_quat(wxyz, vec):
+
+    #     vx, vy, vz = vec[:, :, 0], vec[:, :, 1], vec[:, :, 2]
+    #     x, y, z, w = wxyz[:, :, :, 1], wxyz[:, :, :, 2], wxyz[:, :, :, 3], wxyz[:, :, :, 0]
+
+    #     tx = 2.0 * (y * vz - z * vy)
+    #     ty = 2.0 * (z * vx - x * vz)
+    #     tz = 2.0 * (x * vy - y * vx)
+
+    #     rx = tx * w + (y * tz - z * ty)
+    #     ry = ty * w + (z * tx - x * tz)
+    #     rz = tz * w + (x * ty - y * tx)
+
+    #     rotated_vec = np.stack((vx + rx, vy + ry, vz +rz), axis=-1)
+
+    #     return rotated_vec
 
     def process_dataset(self):
         self._init_retargeting()
@@ -373,16 +426,18 @@ class PipelineController:
         T = len(motion_data["poses"])
 
         human_motion = np.array(motion_data["poses"]).reshape(T, -1, 7)
-        keypoints_subset = human_motion[:, self.selected_indices, :].copy()
-        keypoints_subset[:, :, :2] = keypoints_subset[:, :, :2] -  keypoints_subset[:1, :1, :2]
-        keypoints_subset[:, :, 2] = keypoints_subset[:, :, 2] -  np.min(keypoints_subset[:, :, 2]) + 0.05
+        human_motion[:, :, :2] = human_motion[:, :, :2] - human_motion[:1, :1, :2]
+        human_motion[:, :, 2] = human_motion[:, :, 2] - np.min(human_motion[:, :, 2]) + 0.05
+        human_motion[:, :, 3:] = MathEngine.quat_normalize(human_motion[:, :, 3:])
+        keypoints_subset = human_motion[:, self.keypoints_indices, :].copy()
 
         body_pos = human_motion[:, :, :3].copy()
-        body_pos[:, :, :2] = body_pos[:, :, :2] - body_pos[:1, :1, :2]
-        body_pos[:, :, 2] = body_pos[:, :, 2] - np.min(body_pos[:, :, 2]) + 0.05
-
         body_rot = human_motion[:, :, 3:].copy()
-        body_rot = MathEngine.quat_normalize(body_rot)
+
+        # axis_orent_error, axis_error_angle, aixs_error_indices = self._check_orentation(keypoints_subset)
+
+        # if axis_orent_error:
+        #   return
 
         g1_qpos_list = []
         for i in range(T):
@@ -399,7 +454,6 @@ class PipelineController:
 
         relabel_root_rot = g1_qpos[:, 3:7]
         relabel_root_trans = g1_qpos[:, :3]
-        relabel_root_trans[:, :2] -= relabel_root_trans[0, :2]
         
         target_data = {
             "body_pos": body_pos.astype(np.float32),
@@ -434,9 +488,9 @@ class PipelineController:
         wxyz = poses[:, :, 3:]
         wxyz = MathEngine.quat_normalize(wxyz)
         
-        skeleton = SkeletonStructure(UE_links, UE_link_parents)
-        keypoint_skeleton = SkeletonStructure(UE_keypoints_links, UE_keypoints_parents)
-        viz = MotionVisualizer(xyz, wxyz, skeleton, keypoint_skeleton, self.selected_indices, file_path, bad_dir, title=file_path.stem)
+        skeleton = SkeletonStructure(HUMAN_BODY_LINKS, HUMAN_BODY_LINKS_PARENT_MAP)
+        keypoint_skeleton = SkeletonStructure(HUMAN_KEYPOINT_LINKS, HUMAN_KEYPOINTS_PARENT_MAP)
+        viz = MotionVisualizer(xyz, wxyz, skeleton, keypoint_skeleton, self.keypoints_indices, file_path, bad_dir, title=file_path.stem)
         viz.run()
 
 def main():

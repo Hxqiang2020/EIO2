@@ -4,9 +4,10 @@
 import json
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from collections import OrderedDict
 
 
-UE_links = ['pelvis', # 0
+HUMAN_BODY_LINKS = ['pelvis', # 0
     'left_hip_link', 'left_knee_link', 'left_foot_link', 'left_toe_link', # 1, 2, 3, 4
     'right_hip_link', 'right_knee_link', 'right_foot_link', 'right_toe_link', # 5, 6, 7, 8
     'spine0_link', 'spine1_link', 'spine2_link', # 9, 10, 11
@@ -15,14 +16,14 @@ UE_links = ['pelvis', # 0
     'neck0_link', 'neck1_link', 'head_link' # 20, 21, 22
 ]
 
-UE_keypoints_links = ['pelvis', 
+HUMAN_KEYPOINT_LINKS = ['pelvis', 
     'left_hip_link', 'left_knee_link', 'left_foot_link',
     'right_hip_link', 'right_knee_link', 'right_foot_link',
     'left_shoulder_link', 'left_elbow_link', 'left_wrist_link', 
     'right_shoulder_link', 'right_elbow_link', 'right_wrist_link', 
 ]
 
-UE_keypoints_parents = {
+HUMAN_KEYPOINTS_PARENT_MAP = {
     "pelvis": "world",
     'left_hip_link': "pelvis",
     'left_knee_link': "left_hip_link",
@@ -38,7 +39,7 @@ UE_keypoints_parents = {
     'right_wrist_link': "right_elbow_link",
 }
 
-UE_link_parents = {
+HUMAN_BODY_LINKS_PARENT_MAP = {
     "pelvis": "world",
     'left_hip_link': "pelvis",
     'left_knee_link': "left_hip_link",
@@ -64,8 +65,21 @@ UE_link_parents = {
     'head_link': "neck1_link",
 }
 
+# CHECK_ORENTATION_MAP = {[
+#     ("left_elbow_link", ["left_shoulder_link", [0, 0, 1]]),
+#     ("left_elbow_link", ["left_wrist_link", [1, 0, 0]]),
+#     ("right_elbow_link", ["right_shoulder_link", [0, 0, 1]]),
+#     ("right_elbow_link", ["right_wrist_link", [1, 0, 0]]),
+#     ("left_foot_link", ["left_knee_link", [0, 0, 1]]),
+#     ("left_knee_link", ["left_hip_link", [0, 0, 1]]),
+#     ("right_foot_link", ["right_knee_link", [0, 0, 1]]),
+#     ("right_foot_link", ["right_knee_link", [1, 0, 0]]),
+#     ]}
+
 """
-UE_parents_indices = [
+UE_pare
+("right_elbow_link", "right_wrist_link"),
+nts_indices = [
     -1,
     0, 1, 2, 3,
     0, 5, 6, 7,

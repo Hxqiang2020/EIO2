@@ -105,7 +105,7 @@ class GeneralMotionRetargeting:
             
         self.setup_retarget_configuration()
         
-        self.qpos_init = self.configuration.data.qpos.copy()
+        self.qpos_init = self.configuration.data.qpos[7:].copy()
         
         self.ground_offset = 0.0
 
@@ -163,9 +163,6 @@ class GeneralMotionRetargeting:
 
         pos = self.scale_human_pos(pos, self.human_scale_table)
 
-        # pos, offset_rot = self.offset_human_pos_rot(pos, rot, self.pos_offsets1, self.rot_offsets1) #offset_rot: [x, y, z, w]
-        # rot = offset_rot[:, [3, 0, 1, 2]] #rot: [w, x, y, z]
-
         if offset_to_ground:
             pos = self.offset_pos_to_ground(pos)
 
@@ -181,12 +178,11 @@ class GeneralMotionRetargeting:
             
     def retarget(self, human_data, offset_to_ground=False):
         
-        self.configuration.data.qpos[:] = self.qpos_init
+        self.configuration.data.qpos[7:] = self.qpos_init
         self.configuration.data.qvel[:] = 0.
         mj.mj_forward(self.configuration.model, self.configuration.data)
 
-        pos, rot = human_data[:, :3], human_data[:, 3:] #rot: [w, x, y, z]
-        rot = rot / (np.linalg.norm(rot, axis=-1, keepdims=True) + 1e-12)
+        pos, rot = human_data[:, :3], human_data[:, 3:]
 
         # Update the task targets
         self.update_targets(pos, rot, offset_to_ground)
