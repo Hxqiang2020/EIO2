@@ -1,53 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
-
 import numpy as np
 import os
 import joblib
 import glob
-
-import motion.smpl_sim.poselib.core.rotation3d as pRot
-import scipy.ndimage as filters
-import torch
-
-class MathEngine:
-
-    @staticmethod
-    def quat_normalize(q: np.ndarray) -> np.ndarray:
-        norms = np.linalg.norm(q, axis=-1, keepdims=True)
-        return q / (norms + 1e-12)
-    
-    @staticmethod
-    def _compute_angular_velocity(rot, time_delta: float, guassian_filter=True):
-        assert len(rot.shape) == 3
-        r = torch.from_numpy(rot[:, :, [1, 2, 3, 0]]).float() # wxyz --> xyzw
-        diff_quat_data = pRot.quat_identity_like(r).to(r)
-        diff_quat_data[:-1, :, :] = pRot.quat_mul_norm(r[1:, :, :], pRot.quat_inverse(r[:-1, :, :]))
-        diff_angle, diff_axis = pRot.quat_angle_axis(diff_quat_data)
-        angular_velocity = diff_axis * diff_angle.unsqueeze(-1) / time_delta
-        if guassian_filter:
-            angular_velocity = torch.from_numpy(filters.gaussian_filter1d(angular_velocity.numpy(), 2, axis=-3, mode="nearest"),)
-        return angular_velocity.numpy()
-    
-    @staticmethod
-    def _compute_velocity(p, time_delta, guassian_filter=True):
-        assert len(p.shape) == 3
-        velocity = np.gradient(p, axis=-3) / time_delta
-        if guassian_filter:
-            velocity = filters.gaussian_filter1d(velocity, 2, axis=-3, mode="nearest")
-        
-        return velocity
-    
-    @staticmethod
-    def _compute_dof_vel(joint_pos: np.ndarray, time_delta: float) -> np.ndarray:
-        assert len(joint_pos.shape) == 2
-        dof_vel = (joint_pos[1:, :] - joint_pos[:-1, :]) / time_delta
-        dof_vel = np.concatenate([dof_vel, dof_vel[-1:]], axis=0)
-        return dof_vel
-    
 class MotionLibCfg:
     fps = 50
     motion_dir = "Datasets/target_data/randomization"
@@ -75,8 +31,6 @@ class MotionLibOffline:
             assert ("randomization" in folder) and (folder[-1][-4:] == ".pkl")
 
             folder = "/".join(folder[folder.index("randomization") + 1: -1])
-
-            tgt_folder = folder
 
             curr_motion = joblib.load(curr_file)
 
@@ -131,8 +85,8 @@ class MotionLibOffline:
             curr_motion["reset_root_trans"] = self.lerp(reset_root_trans0, reset_root_trans1, weight_vec)
             curr_motion["reset_root_rot"] = self.quat_slerp(reset_root_rot0, reset_root_rot1, weight_vec)
 
-            os.makedirs(f"Datasets/target_data/randomization_fps/{tgt_folder}/", exist_ok=True)
-            joblib.dump(curr_motion, f"Datasets/target_data/randomization_fps/{tgt_folder}/{key}.pkl")
+            os.makedirs(f"Datasets/target_data/randomization_fps/{folder}/", exist_ok=True)
+            joblib.dump(curr_motion, f"Datasets/target_data/randomization_fps/{folder}/{key}.pkl")
 
     def calc_frame_blend(self, sample_times_sec, motion_lengths_sec, num_frames, dt_sec):
 
@@ -181,16 +135,6 @@ class MotionLibOffline:
 
         return new_q
     
-    def quat_normalize(self, quat: np.ndarray, eps: float = 1e-12) -> np.ndarray:
-        quat = self.to_float32(quat)
-        norm = np.linalg.norm(quat, axis=-1, keepdims=True)
-        return quat / np.clip(norm, eps, None)
-    
-    def to_float32(self, array_like: Any) -> np.ndarray:
-        arr = np.asarray(array_like)
-        return arr.astype(np.float32, copy=False) if arr.dtype != np.float32 else arr
-    
-
 if __name__ == "__main__":
     motion_lib_cfg = MotionLibCfg()
     motion_fps_randomize = MotionLibOffline(motion_lib_cfg)
